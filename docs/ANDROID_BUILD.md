@@ -6,8 +6,8 @@
 
 | فایل | کاربرد | اندازه | SHA-256 |
 | --- | --- | ---: | --- |
-| `builds/android/roots-of-sacrifice-release.apk` | نسخهٔ نهایی و امضاشده | ۷۹٬۵۳۰٬۱۰۸ بایت | `b55120d90b60d8f4d8a7c128d719e623973cb1f9e7f4abdda8064775564478fc` |
-| `builds/android/roots-of-sacrifice-debug.apk` | نسخهٔ اشکال‌زدایی و امضاشده | ۸۴٬۷۳۶٬۵۱۶ بایت | `d87203384c200a193352f3c1f7337ad767bf14c56cc703dc0168e89f5a3ad6a3` |
+| `builds/android/roots-of-sacrifice-release.apk` | نسخهٔ نهایی و امضاشده | ۷۹٬۵۳۰٬۱۱۰ بایت | `7a8cd05a6726d9288d00968187540cd19b0f8d7de96407cd675c05d27a6f3e25` |
+| `builds/android/roots-of-sacrifice-debug.apk` | نسخهٔ اشکال‌زدایی و امضاشده | ۸۴٬۷۳۶٬۵۱۸ بایت | `9a98c06b8d5a46e69c4778f4cbe83c57ed35658bcd730ceca75f4289c120e256` |
 
 مشخصات مشترک:
 
