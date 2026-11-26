@@ -1,59 +1,55 @@
-# معماری فعلی: ریشه‌های ایثار
+# معماری: ریشه‌های ایثار
 
-این سند وضعیت پیاده‌سازی‌شده را از روی کد، تنظیمات پروژه و خروجی‌های محلی توضیح می‌دهد؛ قرارداد طراحی یا فهرست قابلیت‌های آینده نیست.
+این سند معماری پیاده‌سازی‌شده را از روی کد و تنظیمات فعلی پروژه توضیح می‌دهد، نه طرح آینده را.
 
-## ۱. چارچوب اجرا
+## چارچوب اجرا
 
-- موتور: Godot `4.7.2.stable.official.ed1daf0bf`.
-- نوع بازی: تک‌نفره، دوبعدی، آفلاین و Android-first.
-- رندر: GL Compatibility برای دسکتاپ و موبایل.
-- viewport پایه: `1280×720`؛ کشش `canvas_items` با نسبت `keep`.
-- جهت Android: افقی با حس‌گر، `window/handheld/orientation=4`.
-- صحنهٔ اصلی: `res://scenes/main.tscn`؛ تنها فایل صحنهٔ بازی است.
-- autoloadها: `GameState` و `AudioManager`.
-- متن و فونت: فارسی، Vazirmatn؛ `locale/fallback="fa"`.
-- شبکه، حساب، تبلیغات، خرید درون‌برنامه‌ای یا دانلود دارایی در زمان اجرا وجود ندارد.
-
-ساختار مؤثر:
+- موتور: Godot 4.7.2 (GDScript)، رندر GL Compatibility
+- بازی تک‌نفره، دوبعدی، آفلاین و اندرویدمحور، جهت افقی
+- viewport پایه: ۱۲۸۰×۷۲۰ با کشش `canvas_items` و حفظ نسبت تصویر
+- صحنهٔ اصلی و تنها صحنهٔ بازی: `res://scenes/main.tscn` (اسکریپت `scripts/main.gd`)
+- autoloadها: `GameState` و `AudioManager`
+- فونت Vazirmatn و `locale/fallback="fa"`
+- شبکه، حساب، تبلیغات یا دانلود در زمان اجرا وجود ندارد
 
 ```text
-project.godot
-export_presets.cfg
 scenes/main.tscn
 scripts/
+  main.gd
   game_state.gd
   audio_manager.gd
   data/game_content.gd
-  atlas.gd
-  player.gd
   world.gd
+  player.gd
   plot.gd
   touch_joystick.gd
   ui_factory.gd
-  main.gd
+  atlas.gd
 tests/
   run_tests.gd
   test_runner.tscn
 assets/art, assets/audio, assets/fonts
 tools/build_android.sh
+project.godot
+export_presets.cfg
 ```
 
-`world.gd` و `plot.gd` از طریق اسکریپت ساخته می‌شوند؛ `world.tscn` و `plot.tscn` وجود ندارند. `main.gd` هیچ `class_name MainController` ندارد و مستقیماً به صحنهٔ اصلی متصل است.
+`world.gd` و `plot.gd` در زمان اجرا ساخته می‌شوند و فایل `world.tscn` یا `plot.tscn` وجود ندارد. `main.gd` کلاس نام‌گذاری‌شده ندارد و مستقیماً به صحنهٔ اصلی وصل است.
 
-## ۲. مسئولیت ماژول‌ها
+## مسئولیت ماژول‌ها
 
-| مسیر | مسئولیت فعلی |
-| --- | --- |
-| `scripts/data/game_content.gd` | دادهٔ ثابت فصل‌ها، مأموریت‌ها، پرسش‌ها، گونه‌ها، روایت‌ها و دستاوردها؛ `class_name GameContent` |
-| `scripts/game_state.gd` | وضعیت بازی، پیشرفت مأموریت، امتیاز و منابع، رشد روزانه، قفل منطقه، ذخیره/بازیابی و تنظیمات |
-| `scripts/audio_manager.gd` | cache صدا، موسیقی، ambience و شش پخش‌کنندهٔ SFX |
-| `scripts/atlas.gd` | cache دارایی و ساخت `AtlasTexture`؛ نگاشت گیاه و آیکون |
-| `scripts/world.gd` | ساخت جهان، انتخاب هدف، ورودی حرکت، پسماند و آب‌پاش؛ `class_name WorldController` |
-| `scripts/player.gd` | حرکت و برخورد هندسی `CharacterBody2D`؛ `class_name PlayerController` |
-| `scripts/plot.gd` | رسم بستر و نهال؛ `class_name GardenPlot` |
-| `scripts/touch_joystick.gd` | ورودی لمس و بردار حرکت |
-| `scripts/ui_factory.gd` | کنترل‌های فارسی/RTL، فونت، دکمه، پنل، تصویر و نوار پیشرفت؛ `class_name UIFactory` |
-| `scripts/main.gd` | مالک تمام صفحه‌ها، HUD، مودال‌ها، توقف، تنظیمات، پرسش، یادبود و پایان بازی |
+| مسیر | کلاس | مسئولیت |
+| --- | --- | --- |
+| `scripts/data/game_content.gd` | `GameContent` | دادهٔ ثابت فصل‌ها، مأموریت‌ها، پرسش‌ها، گونه‌ها، روایت‌ها و دستاوردها |
+| `scripts/game_state.gd` | autoload `GameState` | وضعیت بازی، پیشرفت، زمان، قفل منطقه، ذخیره و تنظیمات |
+| `scripts/audio_manager.gd` | autoload `AudioManager` | موسیقی، ambience و افکت‌های صوتی |
+| `scripts/world.gd` | `WorldController` | ساخت جهان، انتخاب هدف و ارسال تعامل |
+| `scripts/player.gd` | `PlayerController` | حرکت و برخورد `CharacterBody2D` |
+| `scripts/plot.gd` | `GardenPlot` | نمایش بستر و نهال |
+| `scripts/touch_joystick.gd` | — | ورودی لمس جوی‌استیک (بدون `class_name`) |
+| `scripts/ui_factory.gd` | `UIFactory` | کنترل‌های فارسی/RTL، دکمه، پنل و فونت |
+| `scripts/atlas.gd` | `GameAtlas` | cache دارایی و `AtlasTexture` |
+| `scripts/main.gd` | — | منو، HUD، مودال‌ها، تنظیمات، پرسش، یادبود و ending |
 
 جریان تعامل:
 
@@ -62,14 +58,12 @@ WorldController.interaction(kind, index)
   → main.gd
   → API مربوطه در GameState
   → GameState.changed / notification
-  → refresh جهان و HUD
+  → به‌روزرسانی جهان و HUD
 ```
 
-سیگنال‌ها نمایش را به‌روز می‌کنند؛ منطق مأموریت فقط در `GameState` است. `WorldController` فایل ذخیره نمی‌نویسد.
+منطق مأموریت فقط در `GameState` است. `WorldController` فایل ذخیره نمی‌نویسد.
 
-## ۳. سیگنال‌ها و APIهای عمومی
-
-### ۳.۱. سیگنال‌ها
+## سیگنال‌ها و APIهای عمومی
 
 ```gdscript
 # GameState
@@ -77,202 +71,117 @@ signal changed
 signal notification(message: String)
 signal chapter_finished(chapter_id: int)
 signal achievement_unlocked(id: String)
+signal time_changed
+signal day_started(day: int)
 
 # WorldController
 signal interaction(kind: String, index: int)
 signal hint_changed(text: String)
 
-# TouchJoystick
+# touch_joystick.gd
 signal direction_changed(direction: Vector2)
 ```
 
-سیگنال‌های جداگانه‌ای برای ذخیره، تکمیل مأموریت، تغییر گیاه یا تنظیمات وجود ندارد.
+سیگنال جداگانه‌ای برای ذخیره یا تکمیل هر مأموریت وجود ندارد؛ این رویدادها معمولاً از طریق `changed` و `notification` دیده می‌شوند.
 
-### ۳.۲. APIهای GameState
+APIهای اصلی `GameState`:
 
-| گروه | APIهای موجود |
-| --- | --- |
-| چرخهٔ بازی | `new_game() -> bool`، `current_chapter()`، `complete_chapter()`، `next_chapter()` |
-| مأموریت | `task_count(id)`، `register_event(id, unique_key)`، `chapter_ready()` |
-| منطقه | `zone_unlocked(zone)`، `set_zone(zone)`، `plots(zone := "")` |
-| بستر و نهال | `prepare_plot(index)`، `plant_tree(index, species)`، `water_plot(index)`، `refill_water()` |
-| پسماند و NPC | `collect_trash(index)`، `trash_collected(index)`، `talk_npc(index)`، `help_npc(index)`، `read_story(index)`، `read_npc_story(npc_index, chapter)`، `npc_story_seen(npc_index, chapter)` |
-| یادبود | `has_memorial(zone, index)`، `save_memorial(zone, index, name_text, message)` |
-| پرسش | `quiz_indices()`، `answer_question(index, option)` |
-| زمان و وضعیت | `celebrate()`، `weather()`، `advance_day()`، `biodiversity()`، `unlock_achievement(id)` |
-| ذخیره | `has_valid_save()`، `save_game(path_override := "")`، `load_game(path_override := "")` |
-| تنظیمات | `load_settings()`، `set_setting(key, value)`، `reset_settings()`، `save_settings()` |
+- چرخهٔ بازی: `new_game()`، `current_chapter()`، `chapter_ready()`، `complete_chapter()`، `next_chapter()`
+- مأموریت: `task_count(id)`، `register_event(id, unique_key)`
+- منطقه: `zone_unlocked(zone)`، `set_zone(zone)`، `plots(zone)`
+- بستر و نهال: `prepare_plot(index)`، `plant_tree(index, species)`، `water_plot(index)`، `apply_compost(index)`، `clear_dead_plot(index)`، `refill_water()`
+- کمپوست: `build_compost_station()`، `start_compost_batch()`، `collect_compost()`
+- پسماند و NPC: `collect_trash(index)`، `talk_npc(index)`، `help_npc(index)`، `read_story(index)`، `read_npc_story(npc_index, chapter)`
+- یادبود و پرسش: `has_memorial(...)`، `save_memorial(...)`، `quiz_indices()`، `answer_question(index, option)`
+- زمان و ذخیره: `weather()`، `advance_day()`، `has_valid_save()`، `save_game()`، `load_game()`
+- تنظیمات: `set_setting(key, value)`، `reset_settings()`، `save_settings()`، `load_settings()`
 
-API عمومی ویرایش یا حذف یادبود، انتخاب فصل فعال، تاریخچهٔ تلاش پرسش یا مسیرهای inject جداگانه برای تست وجود ندارد.
+API عمومی برای ویرایش یا حذف یادبود، انتخاب فصل فعال، یا تاریخچهٔ تلاش پرسش وجود ندارد.
 
-## ۴. محتوا و قواعد پیشرفت
+## محتوا و پیشرفت
 
-### ۴.۱. schema محتوا
+دادهٔ ثابت در `GameContent` است. شناسهٔ مأموریت بین فصل‌ها تکرار می‌شود؛ `register_event()` با کلید `chapter:id:unique_key` تکرار را رد می‌کند و فقط مأموریت فصل فعال را جلو می‌برد. پایان فصل تنها به تکمیل مأموریت‌های همان فصل وابسته است، نه به سقف امتیاز یا پاسخ همهٔ پرسش‌ها.
 
-فصل:
+| فصل | مکان | مأموریت‌ها | پاداش eco/social/culture/stars |
+| ---: | --- | --- | --- |
+| ۱ باغ فراموش‌شده | `garden` | `clean_trash×5`، `talk_guide×1`، `prepare_soil×2` | ۸/۳/۳/۳ |
+| ۲ نخستین نهال | `garden` | `plant_tree×2`، `water_tree×3`، `collect_recycle×2` | ۱۰/۲/۳/۳ |
+| ۳ راز خاک و آب | `garden` | `prepare_soil×3`، `water_tree×3`، `answer_quiz×2`، `collect_recycle×2` | ۱۲/۲/۴/۴ |
+| ۴ مدرسه سبز | `school` | `talk_guide×1`، `plant_school×3`، `collect_recycle×3`، `answer_quiz×2` | ۱۰/۵/۳/۴ |
+| ۵ باغ یادبود | `garden` | `read_story×3`، `write_memorial×1`، `add_memorial×1`، `answer_quiz×2` | ۶/۸/۱۰/۴ |
+| ۶ همراهی مردم | `park` | `help_people×3`، `collect_recycle×3`، `talk_guide×2`، `read_story×2` | ۸/۱۰/۶/۴ |
+| ۷ شهر سبز | `city` | `plant_native×3`، `water_tree×3`، `collect_recycle×4`، `answer_quiz×2` | ۱۲/۶/۵/۵ |
+| ۸ ریشه‌های ماندگار | `city` | `mature_tree×2`، `help_people×3`، `final_quiz×3`، `celebrate_city×1` | ۱۵/۱۲/۱۰/۵ |
 
-```gdscript
-{
-    "id": 1,
-    "title": "...",
-    "subtitle": "...",
-    "location": "garden",
-    "intro": [{"speaker": "...", "text": "..."}],
-    "mentor_line": "...",
-    "tasks": [{"id": "...", "label": "...", "kind": "...", "target": 1}],
-    "completion": "...",
-    "reward": {"eco": 8, "social": 3, "culture": 3, "stars": 3},
-    "unlock": "chapter_2"
-}
-```
+۱۷ پرسش در محتوا هست (دو پرسش در فصل‌های ۱ تا ۷ و سه پرسش در فصل ۸). پاسخ نادرست پیشرفت یا امتیاز نمی‌دهد؛ نخستین پاسخ درست ثبت می‌شود و تکرار آن پاداش تازه ندارد. `next_chapter()` فهرست `quiz_solved` را پاک می‌کند.
 
-شناسهٔ فصل `int` در بازهٔ `1..8` است. مأموریت کاتالوگ مستقل، `chapter_id`، پیش‌نیاز یا پاداش جداگانه ندارد. شناسهٔ مأموریت بین فصل‌ها تکرار می‌شود و `progress` با `next_chapter()` صفر می‌شود.
+شش گونه: `cypress`، `native_oak`، `pomegranate`، `arghavan`، `olive`، `willow`. ۳۲ روایت برای چهار NPC؛ ۲۴ روایت مستند و هشت روایت تخیلی (NPC رها) با برچسب مشخص. یازده دستاورد از جمله `story_keeper` و `martyr_voices`. مقادیر نیاز آب، نور و رشد گونه‌ها برای تعادل بازی‌اند، نه توصیهٔ کشاورزی.
 
-پرسش:
+## مناطق و وضعیت
 
-```gdscript
-{
-    "chapter": 1,
-    "question": "...",
-    "options": ["...", "...", "...", "..."],
-    "correct": 1,
-    "feedback": "...",
-    "category": "environment"
-}
-```
+چهار منطقه `garden`، `school`، `park` و `city`؛ هر کدام شش بستر. حداقل فصل باز شدن: `garden=1`، `school=4`، `park=6`، `city=7`. `set_zone()` فقط منطقه و موقعیت بازیکن را عوض می‌کند و فصل فعال را تغییر نمی‌دهد.
 
-`correct` صفرمبنا است. فقط یک رشتهٔ `feedback` وجود دارد؛ بازخورد درست و نادرست دو فیلد مستقل نیستند.
+نسخهٔ فعلی ذخیره `SAVE_VERSION = 3` است. حالت بازی تازه شامل فصل، منطقه، روز، `time_of_day`، امتیازها، منابع، پیشرفت مأموریت، یادبودها، پرسش‌ها، آموزش‌ها، روایت‌های دیده‌شده، ایستگاه کمپوست و موقعیت بازیکن است. هر بستر فیلدهایی مثل `prepared`، `species`، `stage`، رطوبت، خاک، سلامت، رشد، `dead` و `neglect_days` دارد. `stage=0` بستر خالی است و نهال کاشته‌شده مراحل `1..5` را دارد.
 
-گونه:
+تنظیمات جدا از ذخیرهٔ بازی در `user://settings.cfg` نگهداری می‌شوند: `music`، `sound`، `touch`، `reduced_motion` و `day_length` (۱۲۰ تا ۴۸۰ ثانیه؛ پیش‌فرض ۲۴۰). `new_game()` این تنظیمات را حفظ می‌کند.
 
-```gdscript
-{
-    "id": "cypress",
-    "name": "...",
-    "latin_common": "...",
-    "description": "...",
-    "water_need": 2,
-    "sun_need": 3,
-    "growth_actions": 5,
-    "reward_eco": 8,
-    "stage_names": ["...", "...", "...", "...", "...", "..."]
-}
-```
+## رشد و چرخهٔ روز
 
-### ۴.۲. فهرست فصل‌ها و ۳۰ مأموریت
+آماده‌سازی خاک، کاشت (مصرف یک بذر)، آبیاری و کمپوست (یک‌بار در روز برای هر بستر) وضعیت نهال را تغییر می‌دهند. رشد فقط با `advance_day()` انجام می‌شود و به ساعت واقعی یا اینترنت وابسته نیست. هوا بر اساس `day % 4` یکی از حالت‌های آفتابی، نیمه‌ابری یا بارانی است. رشد به رطوبت، خاک، نور و نیاز گونه بستگی دارد؛ نهال بی‌مراقبت ممکن است بمیرد و بستر دوباره آزاد شود. رویداد `mature_tree` وقتی ثبت می‌شود که `stage >= 4` و `health >= 60` باشد.
 
-پاداش‌ها به ترتیب `eco/social/culture/stars` هستند.
+## یادبود
 
-| فصل | موقعیت | مأموریت‌ها و هدف | پاداش |
-|---:|---|---|---|
-| ۱، باغ فراموش‌شده | `garden` | `clean_trash×5`، `talk_guide×1`، `prepare_soil×2` | `8/3/3/3` |
-| ۲، نخستین نهال | `garden` | `plant_tree×2`، `water_tree×3`، `collect_recycle×2` | `10/2/3/3` |
-| ۳، راز خاک و آب | `garden` | `prepare_soil×3`، `water_tree×3`، `answer_quiz×2`، `collect_recycle×2` | `12/2/4/4` |
-| ۴، مدرسه سبز | `school` | `talk_guide×1`، `plant_school×3`، `collect_recycle×3`، `answer_quiz×2` | `10/5/3/4` |
-| ۵، باغ یادبود | `garden` | `read_story×3`، `write_memorial×1`، `add_memorial×1`، `answer_quiz×2` | `6/8/10/4` |
-| ۶، همراهی مردم | `park` | `help_people×3`، `collect_recycle×3`، `talk_guide×2`، `read_story×2` | `8/10/6/4` |
-| ۷، شهر سبز | `city` | `plant_native×3`، `water_tree×3`، `collect_recycle×4`، `answer_quiz×2` | `12/6/5/5` |
-| ۸، ریشه‌های ماندگار | `city` | `mature_tree×2`، `help_people×3`، `final_quiz×3`، `celebrate_city×1` | `15/12/10/5` |
+`save_memorial(zone, index, name_text, message)` یک پلاک محلی می‌سازد. نام و پیام نباید خالی باشند (سقف ۴۰ و ۲۴۰ نویسه)، بستر باید گونه داشته باشد و پلاک تکراری پذیرفته نمی‌شود. یک ایجاد موفق هم‌زمان `write_memorial` و `add_memorial` را پیش می‌برد و فوراً ذخیره می‌کند. ویرایش و حذف در این نسخه وجود ندارد.
 
-`register_event()` کلید `chapter:id:unique_key` می‌سازد، تکرار را رد می‌کند و فقط مأموریت‌های فصل فعال را می‌سنجد. رسیدن به هدف، یک‌بار `۵` ستاره اضافه می‌کند. `read_npc_story()` علاوه بر ثبت مأموریت `read_story`، کلید `npc:chapter` را در `npc_stories` ذخیره می‌کند؛ تکرار روایت پاداش تازه نمی‌دهد و خواندن هر ۳۲ روایت واقعی یا تخیلی `martyr_voices` را باز می‌کند.
+## ذخیره و بازیابی
 
-`chapter_ready()` و `complete_chapter()` فقط تکمیل مأموریت‌های فصل فعال و تکرار پایان فصل را بررسی می‌کنند. آستانهٔ امتیاز یا الزام کلی به پاسخ همهٔ پرسش‌ها وجود ندارد. فصل‌های ۱، ۲ و ۶ مأموریت پرسش ندارند و بدون پاسخ پرسش قابل تکمیل‌اند.
-
-### ۴.۳. پرسش‌ها و پاسخ
-
-۱۷ پرسش، دو پرسش برای هر فصل و سه پرسش اختصاصی برای فصل ۸. `quiz_indices()` پرسش‌های فصل فعال را برمی‌گرداند:
+مسیرها:
 
 ```text
-فصل ۱: [0, 1]
-فصل ۲: [2, 3]
-فصل ۳: [4, 5]
-فصل ۴: [6, 7]
-فصل ۵: [8, 9]
-فصل ۶: [10, 11]
-فصل ۷: [12, 13]
-فصل ۸: [14, 15, 16]
+user://garden.save
+user://garden.backup
+user://settings.cfg
 ```
 
-اندیس‌ها صفرمبنا هستند. گزینهٔ درست به ترتیب اندیس:
+فایل ذخیره یک envelope است: رشتهٔ `payload` (JSON وضعیت) و `checksum` که SHA-256 همان رشته است. نسخهٔ داخل payload برابر ۳ است و ذخیره‌های نسخهٔ ۱ و ۲ هنگام بارگذاری مهاجرت می‌کنند.
 
-```text
-0→1، 1→0، 2→2، 3→1، 4→0، 5→3، 6→0، 7→1،
-8→0، 9→2، 10→0، 11→3، 12→0، 13→1، 14→0، 15→2
+ترتیب ذخیرهٔ عادی: نوشتن در فایل موقت، `flush`، اگر ذخیرهٔ فعلی معتبر باشد کپی آن به backup، سپس جایگزینی با rename. اگر ساخت backup شکست بخورد، ذخیرهٔ اصلی جایگزین نمی‌شود. `path_override` برای تست است و backup عادی نمی‌سازد.
+
+`load_game()` ابتدا فایل اصلی و در صورت نیاز backup را می‌خواند. `has_valid_save()` فقط وقتی Continue را مجاز می‌کند که یکی از این دو معتبر باشد. حداکثر اندازهٔ فایل خواندنی ۲٬۰۰۰٬۰۰۰ بایت است.
+
+نقاط ذخیره شامل بازی تازه، پایان فصل، پایان روز، ایجاد یادبود، نخستین خواندن روایت، ذخیرهٔ دستی، بازگشت به منو، خروج، و یک timer ده‌ثانیه‌ای برای حالت dirty است. شکست ذخیره، بازی تازه یا خروج را متوقف می‌کند.
+
+## جهان و کنترل‌ها
+
+`WorldController` فضای ۱۲۸۰×۷۲۰ را بدون TileMap می‌سازد: شش بستر، چهار NPC، پسماند، آب‌پاش و ایستگاه کمپوست. هر فصل پس‌زمینهٔ اختصاصی `scene_<name>.svg` دارد؛ اگر مکان فعال با مکان آن فصل یکی نباشد، از `DEFAULT_SCENES` استفاده می‌شود. فاصلهٔ تعامل ۱۱۵ است. `PlayerController` حرکت را با برخورد بسترها، موانع صحنه و NPCها محدود می‌کند.
+
+`GameAtlas` اطلس‌های SVG (از جمله `plants.svg`، `npcs.svg`، `player.svg`، `icons.svg` و `props.svg`) را cache می‌کند. `tiles.svg` هنوز تولید می‌شود، اما پس از آمدن پس‌زمینه‌های کامل فصل در رسم جهان استفاده نمی‌شود.
+
+| عمل | لمسی | صفحه‌کلید |
+| --- | --- | --- |
+| حرکت | جوی‌استیک پایین چپ | `WASD` یا کلیدهای جهت‌دار |
+| تعامل | لمس هدف یا دکمهٔ «عمل» | `E` یا `Space` |
+| آبیاری | دکمهٔ «آب» یا دکمهٔ کنار نهال | `Q` |
+| توقف | دکمهٔ «توقف» | `Escape` |
+| بازگشت اندروید | `NOTIFICATION_WM_GO_BACK_REQUEST` | بستن مودال، توقف یا تأیید خروج |
+
+InputMap سفارشی تعریف نشده و کلیدها مستقیماً خوانده می‌شوند. رفتار Back روی دستگاه فیزیکی هنوز تأیید نشده است.
+
+## رابط و صدا
+
+`main.gd` همهٔ صفحه‌ها و مودال‌ها را در زمان اجرا می‌سازد؛ stack صفحه حفظ نمی‌شود. متن‌های کاربردی فارسی و راست‌چین‌اند؛ مقدار منابع HUD وسط‌چین است و آدرس لاتین منبع LTR می‌ماند. منو و ending از تصویر سینمایی با shader زمان‌واقعی استفاده می‌کنند، نه فایل ویدئو. `reduced_motion` حرکت اتمسفر را کم می‌کند و `touch` نمایش کنترل لمسی را قطع و وصل می‌کند.
+
+`AudioManager` دو پخش‌کنندهٔ موسیقی با crossfade، دو ambience و شش پخش‌کنندهٔ SFX دارد. توقف بازی صدا را قطع می‌کند؛ تنظیمات بازشده از توقف، ساعت را متوقف نگه می‌دارد ولی صدا را برای پیش‌نمایش فعال می‌کند.
+
+## تست و خروجی اندروید
+
+تست خودکار با این فرمان اجرا می‌شود:
+
+```bash
+godot --headless --path . --scene res://tests/test_runner.tscn
 ```
 
-پاسخ نادرست هیچ پاسخ حل‌شده، پیشرفت یا امتیازی ثبت نمی‌کند. نخستین پاسخ درست `quiz_solved` و `culture += 4` را ثبت می‌کند و رویدادهای `answer_quiz` و `final_quiz` را می‌فرستد. تکرار پاسخ درست `true` برمی‌گرداند اما پاداش تازه ندارد. `next_chapter()` فهرست پاسخ‌های حل‌شده را پاک می‌کند؛ بنابراین پرسش اندیس ۱۲ در فصل ۸ دوباره قابل ثبت است.
-
-### ۴.۴. گونه‌ها، روایت‌ها و دستاوردها
-
-- شش درخت بومی ایران: `cypress`، `native_oak`، `pomegranate`، `arghavan`، `olive`، `willow`.
-- ۳۲ روایت برای چهار NPC (`0، 1، 2، 3`) در هشت فصل؛ همه با روایت شخص اول همان NPC نوشته شده‌اند. ۲۴ روایت واقعی شهیدان برای سه NPC نام، منبع کامل و ارجاع شفاف به روایت‌گوی اصلی دارند؛ هشت روایت تخیلی رها (`2`) دربارهٔ پدر شهید اوست و بدون ادعای تاریخی یا منبع ساختگی است.
-- یازده دستاورد: `first_step`، `first_sapling`، `water_keeper`، `recycle_friend`، `green_school`، `story_keeper`، `martyr_voices`، `people_helper`، `native_planter`، `green_city`، `lasting_roots`.
-
-امتیازها ثابت نیستند؛ اقدام اختیاری، گونه، مراقبت در روزهای مختلف، یادبود و پاسخ درست روی مجموع اثر می‌گذارند. هدف نهایی `295/160/150` در کد وجود ندارد.
-
-## ۵. مناطق و وضعیت در حافظه
-
-چهار منطقه `garden`، `school`، `park` و `city` وجود دارد و هر یک شش بستر دارد. حداقل فصل ورود:
-
-```text
-garden=1، school=4، park=6، city=7
-```
-
-`set_zone()` فقط منطقه و موقعیت بازیکن را تغییر می‌دهد؛ فصل فعال ثابت می‌ماند. در نقشه، فصل‌های بعد از فصل فعال غیرفعال‌اند و انتخاب فصل‌های قبلی فقط موقعیت را عوض می‌کند.
-
-وضعیت اولیه:
-
-```gdscript
-{
-    "version": 1,
-    "chapter": 1,
-    "zone": "garden",
-    "day": 1,
-    "scores": {"eco": 0, "social": 0, "culture": 0, "stars": 0},
-    "resources": {"water": 8, "seeds": 8, "compost": 6},
-    "completed": [],
-    "progress": {},
-    "seen": [],
-    "zones": {},
-    "achievements": [],
-    "memorials": [],
-    "quiz_solved": [],
-    "stats": {"planted": 0, "watered": 0, "recycled": 0, "helped": 0},
-    "player": [660.0, 460.0],
-    "finished": false
-}
-```
-
-schema هر بستر:
-
-```gdscript
-{
-    "prepared": false,
-    "species": "",
-    "stage": 0,
-    "moisture": 25,
-    "soil": 45,
-    "health": 100,
-    "growth": 0.0,
-    "watered_day": -1,
-    "planted_day": 0,
-    "compost_day": -1,
-    "sun": 2 + (i % 2),
-    "name": ""
-}
-```
-
-تنظیمات جدا از ذخیرهٔ بازی و در `ConfigFile` بخش `[game]` ذخیره می‌شوند:
-
-```text
-music=0.45
-sound=0.65
-touch=true
-reduced_motion=false
-day_length=240.0
-```
-
-`new_game()` این تنظیمات را حفظ می‌کند. `set_setting()` نوع و بازهٔ مقادیر را بررسی و بلافاصله ذخیره می‌کند؛ `reset_settings()` همه را به `DEFAULT_SETTINGS` برمی‌گرداند. رابط تنظیمات دو دستهٔ صدا و زمان/دسترسی، درصد زنده، توضیح کلیدها، بازنشانی و پیوند راهنمای کنترل دارد. گزینه‌های master volume، mute، متن بزرگ، کنتراست بالا و دست چپ وجود ندارند.
+جزئیات پوشش، پذیرش و آزمون دستگاه در [آزمون و پذیرش](TESTING.md) و [گزارش آزمون](TEST_REPORT.md) آمده است. ساخت، امضا و نصب APK در [راهنمای ساخت اندروید](ANDROID_BUILD.md) توضیح داده شده است./دسترسی، درصد زنده، توضیح کلیدها، بازنشانی و پیوند راهنمای کنترل دارد. گزینه‌های master volume، mute، متن بزرگ، کنتراست بالا و دست چپ وجود ندارند.
 
 ## ۶. قواعد بازی و رشد
 
