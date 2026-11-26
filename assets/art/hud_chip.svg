@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="92" height="44" viewBox="0 0 92 44" shape-rendering="crispEdges">
+<defs><linearGradient id="hud_chip" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4f7d42"/><stop offset="1" stop-color="#173f35"/></linearGradient></defs><rect x="3" y="4" width="86" height="38" rx="13" fill="#20352e" opacity="0.32"/><rect x="2" y="2" width="88" height="40" rx="13" fill="#20352e"/><rect x="5" y="5" width="82" height="34" rx="11" fill="#c49b56"/><rect x="8" y="8" width="76" height="28" rx="9" fill="url(#hud_chip)"/><rect x="14" y="11" width="64" height="3" fill="#91b85c" opacity="0.42"/>
+</svg>
