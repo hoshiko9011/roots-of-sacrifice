@@ -1,94 +1,90 @@
 # راهنمای ساخت و نصب اندروید
 
-این راهنما برای بازی **ریشه‌های ایثار** و خروجی‌های تأییدشدهٔ روز ۲۰۲۶-۱۱-۲۶ نوشته شده است.
+این راهنما نصب نسخهٔ منتشرشده و بازسازی APK بازی **ریشه‌های ایثار** را شرح می‌دهد. معرفی پروژه در [README](../README.md) آمده است.
 
-## خروجی‌های آماده
+## نسخهٔ منتشرشده
 
-| فایل | کاربرد | اندازه | SHA-256 |
-| --- | --- | ---: | --- |
-| `builds/android/roots-of-sacrifice-release.apk` | نسخهٔ نهایی و امضاشده | ۷۹٬۵۳۰٬۱۱۰ بایت | `7a8cd05a6726d9288d00968187540cd19b0f8d7de96407cd675c05d27a6f3e25` |
-| `builds/android/roots-of-sacrifice-debug.apk` | نسخهٔ اشکال‌زدایی و امضاشده | ۸۴٬۷۳۶٬۵۱۸ بایت | `9a98c06b8d5a46e69c4778f4cbe83c57ed35658bcd730ceca75f4289c120e256` |
+نسخهٔ `1.0.0` (`versionCode=1`) از [صفحهٔ Release](https://github.com/hoshiko9011/roots-of-sacrifice/releases/tag/v1.0.0) قابل دریافت است.
 
-مشخصات مشترک:
-
+- [دانلود APK امضاشده](https://github.com/hoshiko9011/roots-of-sacrifice/releases/download/v1.0.0/roots-of-sacrifice-release.apk)
 - نام بسته: `ir.roots_of_sacrifice.game`
-- نسخه: `1.0.0`، `versionCode=1`
-- حداقل اندروید: API 24
+- حداقل اندروید: API 24 / اندروید ۷
 - اندروید هدف: API 36
 - معماری‌ها: `arm64-v8a` و `armeabi-v7a`
-- مجوز `android.permission.INTERNET`: ندارد
 - امضا: APK Signature Scheme v2 و v3
-- بازی تمام فونت، تصویر، صدا و داده‌های لازم را درون بسته دارد و برای اجرا به اینترنت نیاز ندارد.
+- هیچ مجوزی، از جمله اینترنت، در manifest نهایی ثبت نشده است
+- حجم: ۷۹٬۵۳۰٬۱۱۰ بایت
+- SHA-256:
 
-## نصب روی دستگاه فیزیکی
+```text
+7a8cd05a6726d9288d00968187540cd19b0f8d7de96407cd675c05d27a6f3e25
+```
+
+اگر پروژه را خودتان بسازید، خروجی‌های امضاشده در `builds/android/` نوشته می‌شوند. این پوشه در مخزن نیست و هش بالا فقط برای APK منتشرشده معتبر است.
+
+## نصب روی دستگاه
 
 پیش‌نیازها:
 
-1. فعال بودن **USB debugging** در دستگاه.
-2. نصب **Android SDK Platform Tools** روی رایانه.
-3. پذیرش درخواست Authorization دیباگ USB روی دستگاه.
+1. فعال بودن USB debugging در دستگاه
+2. نصب Android SDK Platform Tools روی رایانه
+3. پذیرش درخواست اجازهٔ دیباگ USB روی دستگاه
 
-در Git Bash، از ریشهٔ پروژه:
-
-```bash
-C:/Users/Yasamin/.evolab-toolchain/sdk/platform-tools/adb.exe devices -l
-C:/Users/Yasamin/.evolab-toolchain/sdk/platform-tools/adb.exe install -r builds/android/roots-of-sacrifice-release.apk
-```
-
-برای اجرای بازی پس از نصب:
+از ریشهٔ پروژه، APK منتشرشده یا خروجی محلی را نصب کنید:
 
 ```bash
-C:/Users/Yasamin/.evolab-toolchain/sdk/platform-tools/adb.exe shell monkey -p ir.roots_of_sacrifice.game -c android.intent.category.LAUNCHER 1
+adb devices -l
+adb install -r builds/android/roots-of-sacrifice-release.apk
 ```
 
-اگر نسخه‌ای با کلید امضای متفاوت قبلاً نصب شده باشد، اندروید نصب را رد می‌کند. در آن حالت ابتدا از دادهٔ بازی پشتیبان بگیرید و فقط با آگاهی از حذف ذخیرهٔ محلی، نسخهٔ قبلی را حذف کنید. کلید release نباید بدون برنامه‌ریزی تغییر کند، زیرا نسخه‌های بعدی باید با همان کلید امضا شوند.
+اگر `adb` در PATH نیست، از `$ANDROID_SDK/platform-tools/adb` استفاده کنید. برای اجرای بازی پس از نصب:
 
-نصب از فایل APK در خود دستگاه نیز ممکن است؛ برای آن باید اجازهٔ نصب از منابع ناشناخته را فقط برای مدیر فایل مورد اعتماد فعال کنید.
+```bash
+adb shell monkey -p ir.roots_of_sacrifice.game -c android.intent.category.LAUNCHER 1
+```
+
+اگر نسخه‌ای با کلید امضای متفاوت از قبل نصب باشد، اندروید نصب را رد می‌کند. در آن حالت ابتدا از دادهٔ بازی پشتیبان بگیرید و فقط با آگاهی از حذف ذخیرهٔ محلی، نسخهٔ قبلی را حذف کنید. کلید release را بدون برنامه تغییر ندهید؛ نسخه‌های بعدی باید با همان کلید امضا شوند.
+
+نصب مستقیم فایل APK روی خود دستگاه هم ممکن است. اجازهٔ نصب از منابع ناشناخته را فقط برای مدیر فایل مورد اعتماد فعال کنید.
 
 ## بازسازی با اسکریپت
 
-اسکریپت [tools/build_android.sh](../tools/build_android.sh) مراحل زیر را به‌ترتیب انجام می‌دهد:
+اسکریپت [tools/build_android.sh](../tools/build_android.sh) پروژه را import و export می‌کند، APKهای debug و release را تراز و امضا می‌کند، خروجی را بررسی می‌کند و گزارش‌ها و SHA-256 را در `builds/test-results/` می‌نویسد.
 
-1. reimport پروژهٔ Godot و بررسی وجود ۱۵ نمونهٔ WAV imported و چهار MP3 imported.
-2. خروجی‌گیری debug و release.
-3. کپی binary XML معتبر `icon.xml` تولیدشدهٔ Godot به `themed_icon.xml` مورد انتظار جدول منابع قالب Godot 4.7.2.
-4. اجرای `zipalign`.
-5. امضا با کلید debug یا release.
-6. بررسی امضا، تراز بسته، نام بسته، نسخه، API 24/36، GLES3، ABI، نبود مجوز اینترنت و وجود دادهٔ بازی (`assets.sparsepck` و اسکریپت اصلی) در APK.
-7. نوشتن گزارش‌های خام و checksum در `builds/test-results/`.
+### پیش‌نیازها
 
-### پیش‌نیازهای بازسازی
+- Godot Engine 4.7.2 stable
+- قالب صادرات رسمی Godot 4.7.2 (در ویندوز معمولاً در `%APPDATA%\Godot\export_templates\4.7.2.stable`)
+- JDK 21
+- Android SDK با Build Tools `36.0.0` و Platform Tools
+- `bash` و `unzip`
 
-- Godot Engine 4.7.2 stable.
-- Export Template رسمی Godot 4.7.2 در مسیر استاندارد Godot:
-  - ویندوز: `%APPDATA%\Godot\export_templates\4.7.2.stable`
-- JDK 21.
-- Android SDK با Build Tools `36.0.0` و Platform Tools.
-- Git Bash و ابزار `unzip`.
-- Node.js فقط در صورتی که می‌خواهید دارایی‌های SVG را دوباره تولید کنید.
+Node.js فقط برای تولید مجدد SVG و WAV لازم است، نه برای ساخت APK.
 
-### مسیرهای پیش‌فرض این محیط
+### اجرای اسکریپت
 
-```text
-Godot: tools/Godot_v4.7.2-stable_win64_console.exe
-JDK: C:/Users/Yasamin/.evolab-toolchain/jdk-21.0.13.1+2
-Android SDK: C:/Users/Yasamin/.evolab-toolchain/sdk
-Build Tools: C:/Users/Yasamin/.evolab-toolchain/sdk/build-tools/36.0.0
-```
-
-روی رایانهٔ دیگر مسیرها را با متغیرهای محیطی تنظیم کنید:
+مسیر ابزارها را با متغیرهای محیطی تنظیم کنید. مقادیر پیش‌فرض اسکریپت مربوط به یک محیط محلی ویندوز است و در مخزن نیست:
 
 ```bash
-export GODOT_BIN="/path/to/godot_console.exe"
+export GODOT_BIN="/path/to/godot"
 export JDK_HOME="/path/to/jdk-21"
 export ANDROID_SDK="/path/to/android-sdk"
 export ANDROID_BUILD_TOOLS="/path/to/android-sdk/build-tools/36.0.0"
 ./tools/build_android.sh
 ```
 
+اسکریپت به‌صورت پیش‌فرض ابزارهای ویندوزی (`aapt2.exe`، `apksigner.bat`، `zipalign.exe` و `jar.exe`) را صدا می‌زند. روی سیستم‌عامل دیگر باید مسیرها و در صورت نیاز نام فایل ابزارها را با محیط خود هماهنگ کنید.
+
+خروجی نهایی:
+
+```text
+builds/android/roots-of-sacrifice-debug.apk
+builds/android/roots-of-sacrifice-release.apk
+```
+
 ### کلیدهای امضا
 
-اسکریپت از این فایل‌ها استفاده می‌کند:
+اسکریپت از این فایل‌های محلی استفاده می‌کند:
 
 ```text
 builds/keystore/debug.keystore
@@ -96,19 +92,20 @@ builds/keystore/release.keystore
 builds/keystore/release-password.txt
 ```
 
-- نام مستعار debug: `androiddebugkey`
+- نام مستعار debug: `androiddebugkey` (رمز استاندارد: `android`)
 - نام مستعار release: `roots_of_sacrifice`
-- رمز debug استاندارد: `android`
-- رمز release فقط از فایل محلی خوانده می‌شود و در خروجی فرمان نمایش داده نمی‌شود.
-- `builds/` در `.gitignore` قرار دارد و نباید به مخزن عمومی منتقل شود.
-- از `release.keystore` و `release-password.txt` نسخهٔ پشتیبان امن و جداگانه نگه دارید. از دست دادن آن‌ها امکان به‌روزرسانی نصب‌های موجود را از بین می‌برد.
+- رمز release فقط از فایل محلی خوانده می‌شود و در خروجی فرمان چاپ نمی‌شود
+- پوشهٔ `builds/` و keystoreها در `.gitignore` هستند و نباید به مخزن عمومی اضافه شوند
+- از `release.keystore` و `release-password.txt` نسخهٔ پشتیبان امن نگه دارید؛ از دست دادن یا تغییر آن‌ها به‌روزرسانی نصب‌های موجود را مختل می‌کند
 
 ## بررسی دستی خروجی
 
+اگر بخواهید APK را جدا از اسکریپت بررسی کنید:
+
 ```bash
-AAPT2=C:/Users/Yasamin/.evolab-toolchain/sdk/build-tools/36.0.0/aapt2.exe
-APKSIGNER=C:/Users/Yasamin/.evolab-toolchain/sdk/build-tools/36.0.0/apksigner.bat
-ZIPALIGN=C:/Users/Yasamin/.evolab-toolchain/sdk/build-tools/36.0.0/zipalign.exe
+AAPT2="$ANDROID_BUILD_TOOLS/aapt2"
+APKSIGNER="$ANDROID_BUILD_TOOLS/apksigner"
+ZIPALIGN="$ANDROID_BUILD_TOOLS/zipalign"
 
 "$AAPT2" dump badging builds/android/roots-of-sacrifice-release.apk
 "$AAPT2" dump permissions builds/android/roots-of-sacrifice-release.apk
@@ -117,8 +114,12 @@ ZIPALIGN=C:/Users/Yasamin/.evolab-toolchain/sdk/build-tools/36.0.0/zipalign.exe
 sha256sum builds/android/roots-of-sacrifice-release.apk
 ```
 
-خروجی `dump permissions` باید فقط نام بسته را نشان دهد و هیچ `uses-permission` یا مجوز اینترنت نداشته باشد.
+روی ویندوز نام ابزارها معمولاً `aapt2.exe`، `apksigner.bat` و `zipalign.exe` است. خروجی `dump permissions` باید فقط نام بسته را نشان دهد و هیچ `uses-permission` یا مجوز اینترنت نداشته باشد:
 
-## وضعیت آزمون دستگاه
+```text
+package: ir.roots_of_sacrifice.game
+```
 
-نسخهٔ release روی Poco X7 Pro مدل `2412DPC0AG` با Android 16 و GPU Mali-G720 با `adb install -r` نصب شد. بازی جدید و اجرای دوبارهٔ ذخیرهٔ قبلی بدون کرش و بدون خطای Godot انجام شد؛ `AudioTrack` نیز صدا را راه‌اندازی کرد. Samsung/Huawei فیزیکی، armv7، Adreno/PowerVR، تماس واقعی، Home/خاموشی صفحه و چرخش دستی هنوز آزموده نشده‌اند. emulator Samsung موجود در این محیط پاسخ adb را نداد و به‌عنوان شاهد قبول ثبت نشد.
+## وضعیت آزمون
+
+نسخهٔ release تاکنون فقط روی **Poco X7 Pro** (مدل `2412DPC0AG`، اندروید ۱۶) به‌صورت فیزیکی نصب و اجرا شده است. سازگاری با همهٔ گوشی‌ها ادعا نمی‌شود. جزئیات بیشتر در [README](../README.md) و [گزارش آزمون](TEST_REPORT.md) آمده است.
