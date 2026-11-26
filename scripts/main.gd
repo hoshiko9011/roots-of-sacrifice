@@ -1315,6 +1315,7 @@ func _pause() -> void:
 			_toast(GameState.save_error)
 	, "home"))
 
+# Persist the current position and progress with audible confirmation or a visible error.
 func _manual_save() -> void:
 	_remember_position()
 	var saved := GameState.save_game()
@@ -1322,6 +1323,7 @@ func _manual_save() -> void:
 	if saved:
 		AudioManager.play_sfx("save", 0.8)
 
+# Build live settings and briefly preview audio even when the dialog opens from Pause.
 func _settings(message: String = "") -> void:
 	var preview_audio := get_tree().paused and not _tutorial_active()
 	_open_modal("تنظیمات", Vector2(900, 650))
@@ -1350,6 +1352,7 @@ func _settings(message: String = "") -> void:
 	, "settings", "wood"))
 	_modal_footer.add_child(UI.button("راهنمای کنترل‌ها", _controls, "info"))
 
+# Add a titled icon card that groups related controls inside Settings.
 func _settings_section(title: String, icon_name: String) -> VBoxContainer:
 	var panel := UI.panel(_modal_body, Vector2.ZERO, Vector2.ZERO, Color("fbf0d4"))
 	var column := UI.column(panel, 8)
@@ -1360,6 +1363,7 @@ func _settings_section(title: String, icon_name: String) -> VBoxContainer:
 	heading.add_child(label)
 	return column
 
+# Bind a range slider to a validated setting and apply its immediate audio or touch effect.
 func _settings_slider(parent: Node, key: String, title: String, minimum: float, maximum: float, step: float, format_value: Callable) -> void:
 	var column := UI.column(parent, 2)
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1395,6 +1399,7 @@ func _settings_slider(parent: Node, key: String, title: String, minimum: float, 
 	)
 	column.add_child(slider)
 
+# Build an RTL boolean setting card and refresh touch controls when its value changes.
 func _settings_toggle(parent: Node, key: String, title: String, description: String) -> void:
 	var panel := UI.panel(parent, Vector2.ZERO, Vector2.ZERO, Color("fff7e2"))
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1418,6 +1423,7 @@ func _settings_toggle(parent: Node, key: String, title: String, description: Str
 	column.add_child(check)
 	column.add_child(UI.text(description, 17, UI.TEXT_MUTED))
 
+# Show the numbered gameplay guide and entry points for replaying supported tutorials.
 func _controls() -> void:
 	var return_to_pause := get_tree().paused and not _tutorial_active()
 	_open_modal("راهنمای بازی", Vector2(900, 650))
@@ -1447,6 +1453,7 @@ func _controls() -> void:
 	_modal_footer.add_child(replay_chapter)
 	_modal_footer.add_child(UI.button("تنظیمات", _settings, "settings", "wood"))
 
+# Render one numbered guide card with its icon, heading, and full instruction text.
 func _guide_step(number: int, icon_name: String, title: String, description: String) -> void:
 	var panel := UI.panel(_modal_body, Vector2.ZERO, Vector2.ZERO, Color("fff7e2"))
 	var row := UI.row(panel, 12)
@@ -1465,6 +1472,7 @@ func _guide_step(number: int, icon_name: String, title: String, description: Str
 	heading.add_child(title_label)
 	column.add_child(UI.text(description, 19, UI.INK))
 
+# Present NewTech credits, project identity, motto, and event inside the wooden team frame.
 func _about() -> void:
 	var container := _open_modal("درباره ما", Vector2(900, 680))
 	var frame := StyleBoxTexture.new()
@@ -1529,6 +1537,7 @@ func _about() -> void:
 	event_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_modal_body.add_child(event_label)
 
+# Replace gameplay with the final scorecard and routes back to the garden or title screen.
 func _show_ending() -> void:
 	_in_game = false
 	_clear_screen()
@@ -1598,11 +1607,13 @@ func _show_ending() -> void:
 		appear.tween_property(card, "scale", Vector2.ONE, 0.22)
 	AudioManager.play_music("title")
 
+# Return the Persian location label, including the chapter-five memorial garden name.
 func _zone_name(zone: String) -> String:
 	if zone == "garden":
 		return "باغ یادبود" if int(GameState.data.get("chapter", 1)) == 5 and String(GameState.data.get("zone", "garden")) == "garden" else "باغ نهال‌ها"
 	return {"school": "مدرسه", "park": "پارک محله", "city": "شهر سبز"}.get(zone, "باغ")
 
+# Trigger the player's reaction and announce the title of a newly unlocked achievement.
 func _achievement(id: String) -> void:
 	if is_instance_valid(world) and is_instance_valid(world._player):
 		world._player.react()
@@ -1611,6 +1622,7 @@ func _achievement(id: String) -> void:
 			_toast("دستاورد تازه: " + String(achievement.title))
 			break
 
+# Queue a transient notification so simultaneous events cannot overwrite each other.
 func _toast(message: String) -> void:
 	if not is_instance_valid(_toast_label):
 		return
@@ -1618,6 +1630,7 @@ func _toast(message: String) -> void:
 	if _toast_timer.is_stopped():
 		_next_toast()
 
+# Display the next queued notification, animate it when allowed, and restart its timer.
 func _next_toast() -> void:
 	if _notification_queue.is_empty():
 		_toast_label.visible = false
@@ -1629,9 +1642,11 @@ func _next_toast() -> void:
 		_toast_label.create_tween().tween_property(_toast_label, "modulate", Color.WHITE, 0.18)
 	_toast_timer.start()
 
+# Report whether the interactive tutorial overlay currently exists.
 func _tutorial_active() -> bool:
 	return is_instance_valid(_tutorial_layer)
 
+# Initialize a guided overlay while freezing the game clock and audio but keeping world input available.
 func _start_tutorial(id: String, force: bool = false, custom_steps: Array = []) -> void:
 	if GameState.data.is_empty() or (not force and GameState.tutorial_seen(id)):
 		return
@@ -1683,6 +1698,7 @@ func _start_tutorial(id: String, force: bool = false, custom_steps: Array = []) 
 		arrow_pulse.tween_property(_tutorial_arrow, "width", 2.5, 0.55)
 	_update_tutorial_step()
 
+# Populate the current tutorial card and place its highlight and arrow clear of touch controls.
 func _update_tutorial_step() -> void:
 	if not _tutorial_active():
 		return
@@ -1700,10 +1716,12 @@ func _update_tutorial_step() -> void:
 	_tutorial_action_done = action.is_empty()
 	_refresh_tutorial_continue()
 
+# Keep Continue disabled until the current step's required world action is complete.
 func _refresh_tutorial_continue() -> void:
 	if is_instance_valid(_tutorial_continue):
 		_tutorial_continue.disabled = not _tutorial_action_done
 
+# Advance after the required action, or close the final step and mark the tutorial seen.
 func _next_tutorial() -> void:
 	if not _tutorial_active() or not _tutorial_action_done:
 		return
@@ -1714,6 +1732,7 @@ func _next_tutorial() -> void:
 		_tutorial_action_done = false
 		_update_tutorial_step()
 
+# Destroy the tutorial overlay and restore time, audio, and world input to their prior modal state.
 func _close_tutorial(mark_seen: bool) -> void:
 	var closing_id := _tutorial_id
 	if is_instance_valid(_tutorial_layer):
@@ -1735,6 +1754,7 @@ func _close_tutorial(mark_seen: bool) -> void:
 	if mark_seen and not closing_id.is_empty():
 		GameState.mark_tutorial_seen(closing_id)
 
+# Resolve a tutorial highlight rectangle with stable fallbacks before controls are created.
 func _tutorial_target_rect(target: String) -> Rect2:
 	match target:
 		"joystick":
@@ -1770,6 +1790,7 @@ func _tutorial_target_rect(target: String) -> Rect2:
 				return _bottom_bar.get_global_rect().grow(8.0)
 	return Rect2(360, 220, 560, 300)
 
+# Map chapters two through eight to the tutorial for each newly introduced feature.
 func _chapter_tutorial_id() -> String:
 	match int(GameState.data.get("chapter", 1)):
 		2: return "planting"
@@ -1781,9 +1802,11 @@ func _chapter_tutorial_id() -> String:
 		8: return "stewardship"
 	return ""
 
+# Restrict automatic first-run guidance to an untouched chapter-one garden.
 func _should_start_first_run() -> bool:
 	return not GameState.tutorial_seen("first_run") and int(GameState.data.chapter) == 1 and int(GameState.data.stats.planted) == 0
 
+# Start a chapter tutorial only when its new feature has not already been used.
 func _maybe_start_chapter_tutorial() -> void:
 	var id := _chapter_tutorial_id()
 	if id == "compost":
@@ -1797,10 +1820,12 @@ func _maybe_start_chapter_tutorial() -> void:
 	if not id.is_empty():
 		_start_tutorial(id)
 
+# Introduce memorial planting when chapter five opens and no memorial exists yet.
 func _maybe_start_zone_tutorial(zone: String) -> void:
 	if zone == "garden" and int(GameState.data.chapter) == 5 and GameState.data.memorials.is_empty():
 		_start_tutorial("memorial")
 
+# Show a one-time needs guide the first time a chapter-one species is planted.
 func _start_species_tutorial(species_id: String) -> void:
 	if int(GameState.data.chapter) != 1:
 		return
@@ -1814,6 +1839,7 @@ func _start_species_tutorial(species_id: String) -> void:
 	]
 	_start_tutorial(id, false, steps)
 
+# Confirm exit and autosave progress before shutting down audio and the application.
 func _request_quit() -> void:
 	_open_modal("خروج از بازی", Vector2(600, 300))
 	_modal_body.add_child(UI.text("پیشرفت ذخیره میشود. از بازی خارج میشوی؟", 25))
@@ -1825,6 +1851,7 @@ func _request_quit() -> void:
 		get_tree().quit()
 	, "close", "accent"))
 
+# Route Back through tutorial guard, modal close, gameplay pause, or quit confirmation.
 func _handle_back_action() -> void:
 	if _tutorial_active():
 		return
@@ -1835,11 +1862,13 @@ func _handle_back_action() -> void:
 	else:
 		_request_quit()
 
+# Map Escape to the same Back behavior used by Android and consume the key event.
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		_handle_back_action()
 		get_viewport().set_input_as_handled()
 
+# Handle close, Back, pause, and focus lifecycle events with autosave and safe audio restoration.
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		_request_quit()
