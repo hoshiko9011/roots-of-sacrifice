@@ -1,6 +1,7 @@
 class_name GameAtlas
 extends RefCounted
 
+# Resolve shared sprite sheets, atlas cells, and UI icons through one cached resource accessor.
 # Cache loaded art so repeated UI and world requests reuse the same resources.
 static var _textures: Dictionary = {}
 # Icon keys map to cells in the shared icon sheet; the sprout uses its own asset.

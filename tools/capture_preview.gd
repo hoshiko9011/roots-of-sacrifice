@@ -1,13 +1,20 @@
+# Captures deterministic gameplay and asset-sheet previews for runtime verification.
+
 extends SceneTree
 
+# Keep generated previews in a git-ignored directory.
 const OUTPUT := "res://tools/ignored"
+# Use the game's chapter data to drive the ordered scene sweep.
 const CONTENT = preload("res://scripts/data/game_content.gd")
 
+# Defer the capture run until the scene tree is ready.
 func _initialize() -> void:
 	call_deferred("_run")
 
+# Walk a fixed gameplay sequence so every preview captures a known state.
 func _run() -> void:
 	var game_state = root.get_node("GameState")
+	# Isolate preview saves from normal player data.
 	game_state.save_path = "user://roots-preview-save.json"
 	game_state.backup_path = "user://roots-preview-backup.json"
 	var main = load("res://scenes/main.tscn").instantiate()
@@ -26,12 +33,14 @@ func _run() -> void:
 	await process_frame
 	await _assert_music("garden")
 	await _capture("runtime-intro.png")
+	# Bound scripted intro advancement so a stalled modal cannot hang capture.
 	var intro_guard := 0
 	while is_instance_valid(main.modal) and intro_guard < 12:
 		main._next_intro()
 		intro_guard += 1
 		await process_frame
 	await _capture("runtime-tutorial.png")
+	# Bound tutorial advancement for the same hang-free capture guarantee.
 	var tutorial_guard := 0
 	while main._tutorial_active() and tutorial_guard < 12:
 		main._tutorial_action_done = true
@@ -65,6 +74,7 @@ func _run() -> void:
 	await process_frame
 	await _capture("runtime-npc-raha-story.png")
 	main._close_modal()
+	# Force the rainy night state and verify its music before capture.
 	game_state.data.time_of_day = 14.0
 	main._refresh_clock()
 	main.world._on_time_changed()
@@ -73,6 +83,7 @@ func _run() -> void:
 	await _capture("runtime-night.png")
 	game_state.data.time_of_day = 2.0
 	main.world._on_time_changed()
+	# Capture every chapter at midnight with all planting plots matured.
 	for chapter in CONTENT.CHAPTERS:
 		var chapter_id := int(chapter.id)
 		game_state.data.chapter = chapter_id
@@ -152,6 +163,7 @@ func _run() -> void:
 	main._show_ending()
 	await process_frame
 	await _capture("runtime-ending.png")
+	# Release gameplay nodes before rendering standalone asset sheets.
 	main.free()
 	await _capture_asset_sheet("PLANT ATLAS - SIX SPECIES x SIX STAGES", "runtime-plant-atlas.png", [
 		{"path": "res://assets/art/plants.svg", "position": Vector2(256, 96), "size": Vector2(768, 576)},
@@ -170,12 +182,14 @@ func _run() -> void:
 	])
 	await _capture_button_sheet()
 	await _capture_hud_sheet()
+	# Stop audio cleanly before exiting so preview runs do not linger.
 	root.get_node("AudioManager").shutdown()
 	await process_frame
 	await process_frame
 	await create_timer(0.15).timeout
 	quit()
 
+# Populate all six plots with mature species for repeatable chapter previews.
 func _mature_current_plots(game_state, world) -> void:
 	var species_ids := ["cypress", "native_oak", "pomegranate", "arghavan", "olive", "willow"]
 	for i in range(species_ids.size()):
@@ -190,6 +204,7 @@ func _mature_current_plots(game_state, world) -> void:
 		plot.healthy_days = int(plot.stage) * 2
 	world.refresh()
 
+# Validate that the expected track is an active looping MP3.
 func _assert_music(expected: String) -> void:
 	await create_timer(0.2).timeout
 	var manager := root.get_node("AudioManager") as Node
@@ -209,6 +224,7 @@ func _assert_music(expected: String) -> void:
 	if not valid:
 		push_error("Runtime music validation failed: expected %s, actual %s, playing %s, looped %s" % [expected, actual, playing, looped])
 
+# Render a titled, nearest-filtered sheet of supplied asset entries.
 func _capture_asset_sheet(title: String, file_name: String, entries: Array) -> void:
 	var layer := Control.new()
 	layer.size = Vector2(1280, 720)
@@ -247,6 +263,7 @@ func _capture_asset_sheet(title: String, file_name: String, entries: Array) -> v
 	layer.queue_free()
 	await process_frame
 
+# Capture every title-button state in a stable grid.
 func _capture_button_sheet() -> void:
 	var layer := Control.new()
 	layer.size = Vector2(1280, 720)
@@ -287,6 +304,7 @@ func _capture_button_sheet() -> void:
 	layer.queue_free()
 	await process_frame
 
+# Capture HUD button states plus the shared panel and chip assets.
 func _capture_hud_sheet() -> void:
 	var layer := Control.new()
 	layer.size = Vector2(1280, 720)
@@ -360,6 +378,7 @@ func _capture_hud_sheet() -> void:
 	layer.queue_free()
 	await process_frame
 
+# Wait for rendering to settle, then save the viewport as a PNG.
 func _capture(file_name: String) -> void:
 	await create_timer(0.25).timeout
 	RenderingServer.force_draw()

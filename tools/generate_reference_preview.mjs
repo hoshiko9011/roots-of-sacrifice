@@ -1,3 +1,4 @@
+// Build the interactive reference preview with embedded local assets and no network requests.
 import fs from 'node:fs';
 import path from 'node:path';
 

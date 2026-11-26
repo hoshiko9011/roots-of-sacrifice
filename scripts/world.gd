@@ -1,3 +1,4 @@
+# Builds playable zones and owns nearby interactions, prompts, and ambient effects.
 class_name WorldController
 extends Node2D
 
@@ -51,11 +52,13 @@ const ZONE_PROP_OBSTACLES: Dictionary = {
 	"city": [Rect2(533, 274, 24, 24), Rect2(813, 589, 24, 24), Rect2(810, 252, 60, 32)]
 }
 
+# Clamp virtual joystick input before forwarding it to the player.
 var touch_direction: Vector2 = Vector2.ZERO:
 	set(value):
 		touch_direction = value.limit_length(1.0)
 		if is_instance_valid(_player):
 			_player.set_external_direction(touch_direction)
+# Disable player movement and interaction focus together with world input.
 var enabled: bool = true:
 	set(value):
 		enabled = value
@@ -100,6 +103,7 @@ var _last_pointer_ms: int = -1000
 var _pending_position: Vector2 = Vector2(660, 460)
 var _has_pending_position: bool = false
 
+# Cache art, connect state updates, and build the initial zone when ready.
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -114,6 +118,7 @@ func _ready() -> void:
 	GameState.time_changed.connect(_on_time_changed)
 	reload_zone()
 
+# Load chapter backdrops, NPC frames, icons, and props once per controller.
 func _cache_art() -> void:
 	for scene_value in CHAPTER_SCENES.values():
 		var scene := String(scene_value)
@@ -131,6 +136,7 @@ func _cache_art() -> void:
 	_props["birdbath"] = GameAtlas.cell("props.svg", 2, 2)
 	_props["compost"] = GameAtlas.cell("props.svg", 6, 2)
 
+# Build a right-to-left prompt that never intercepts pointer input.
 func _build_prompt() -> void:
 	_prompt = PanelContainer.new()
 	_prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -167,6 +173,7 @@ func _build_prompt() -> void:
 	add_child(_prompt)
 	_prompt.hide()
 
+# Provide a thumb-sized contextual button for a nearby thirsty plant.
 func _build_water_button() -> void:
 	_water_button = UIFactory.button("آب", func() -> void: water_nearest(), "", "water")
 	_water_button.custom_minimum_size = Vector2(78, 78)
@@ -180,10 +187,12 @@ func _build_water_button() -> void:
 	add_child(_water_button)
 	_water_button.hide()
 
+# Redraw atmospheric lighting and weather when the game clock changes.
 func _on_time_changed() -> void:
 	if is_instance_valid(_atmosphere):
 		_atmosphere.queue_redraw()
 
+# Rebuild zone actors while preserving the saved or explicitly requested spawn.
 func reload_zone() -> void:
 	if not is_node_ready() or _reloading:
 		return
@@ -238,6 +247,7 @@ func reload_zone() -> void:
 		_player.blocked_rects.assign(_blocked_rects())
 		_player.blocked_points.assign(NPC_POSITIONS)
 		var saved: Array = GameState.data.get("player", [660.0, 460.0])
+		# A requested spawn applies once; later reloads return to the saved coordinate.
 		_player.position = _pending_position if _has_pending_position else Vector2(float(saved[0]), float(saved[1]))
 		_has_pending_position = false
 		_player.enabled = enabled
@@ -250,6 +260,7 @@ func reload_zone() -> void:
 	_update_focus()
 	queue_redraw()
 
+# Combine scene, prop, and plot-bed footprints into the player's collision set.
 func _blocked_rects() -> Array[Rect2]:
 	var rects: Array[Rect2] = []
 	rects.assign(SCENE_OBSTACLES.get(_scene, []))
@@ -258,6 +269,7 @@ func _blocked_rects() -> Array[Rect2]:
 		rects.append(Rect2(plot_position + GardenPlot.BED_RECT.position, GardenPlot.BED_RECT.size))
 	return rects
 
+# Use chapter artwork only at its matching location to avoid memorial ambience elsewhere.
 func _scene_for_current_location() -> String:
 	if GameState.data.is_empty():
 		return String(DEFAULT_SCENES.get(_zone, "garden_overgrown"))
@@ -266,6 +278,7 @@ func _scene_for_current_location() -> String:
 		return String(CHAPTER_SCENES.get(int(chapter.get("id", 1)), DEFAULT_SCENES.get(_zone, "garden_overgrown")))
 	return String(DEFAULT_SCENES.get(_zone, "garden_overgrown"))
 
+# Anchor tall artwork at its ground point so sorting and hit areas stay aligned.
 func _add_sprite(point: Vector2, texture: Texture2D, art_scale: float) -> Sprite2D:
 	var anchor := Node2D.new()
 	anchor.position = point
@@ -277,6 +290,7 @@ func _add_sprite(point: Vector2, texture: Texture2D, art_scale: float) -> Sprite
 	anchor.add_child(sprite)
 	return sprite
 
+# Add only the landmarks and collision-matched props for the current zone.
 func _build_zone_props() -> void:
 	if _zone in ["garden", "school"]:
 		_compost_sprite = _add_sprite(COMPOST_POSITION, _props["compost"], 1.25)
@@ -292,6 +306,7 @@ func _build_zone_props() -> void:
 			_add_sprite(Vector2(825, 605), _props["lamp"], 1.5)
 			_add_sprite(Vector2(840, 270), _props["bench"], 1.4)
 
+# Update state in place, rebuilding only after location changes or lost actors.
 func refresh() -> void:
 	if not is_node_ready() or _reloading:
 		return
@@ -312,6 +327,7 @@ func refresh() -> void:
 	_update_focus()
 	queue_redraw()
 
+# Tint the compost station to show unbuilt, active, and ready-to-collect states.
 func _refresh_compost_visual() -> void:
 	if not is_instance_valid(_compost_sprite):
 		return
@@ -324,6 +340,7 @@ func _refresh_compost_visual() -> void:
 	elif int(station.get("ready_compost", 0)) > 0:
 		_compost_sprite.modulate = Color(0.78, 1.0, 0.66, 1.0)
 
+# Cache weather, biodiversity, and motion preferences for atmosphere rendering.
 func _refresh_environment() -> void:
 	_weather = GameState.weather()
 	_biodiversity = GameState.biodiversity() if not GameState.data.is_empty() else 0
@@ -331,6 +348,7 @@ func _refresh_environment() -> void:
 	if is_instance_valid(_atmosphere):
 		_atmosphere.queue_redraw()
 
+# Resolve blocked coordinates, cancel movement, and persist explicit placement.
 func set_player_position(pos: Vector2) -> void:
 	if not is_instance_valid(_player):
 		_pending_position = pos
@@ -342,19 +360,24 @@ func set_player_position(pos: Vector2) -> void:
 	_store_player_position()
 	_update_focus()
 
+# Return the pending spawn until the live player actor exists.
 func player_position() -> Vector2:
 	return _player.position if is_instance_valid(_player) else _pending_position
 
+# Clamp external plot indexes to the shared six-bed layout.
 func plot_position(index: int) -> Vector2:
 	return PLOT_POSITIONS[clampi(index, 0, PLOT_POSITIONS.size() - 1)]
 
+# Expose the shared station location for UI placement and interaction routing.
 func compost_position() -> Vector2:
 	return COMPOST_POSITION
 
+# Persist live movement only after a game exists, never for the empty title state.
 func _store_player_position() -> void:
 	if is_instance_valid(_player) and not GameState.data.is_empty():
 		GameState.data["player"] = [_player.position.x, _player.position.y]
 
+# Clean effects, persist movement, throttle redraws, and refresh interaction focus.
 func _process(delta: float) -> void:
 	for index in range(_bursts.size() - 1, -1, -1):
 		if not is_instance_valid(_bursts[index]):
@@ -368,12 +391,14 @@ func _process(delta: float) -> void:
 		if _hint_time <= 0.0:
 			_hint_override = ""
 		_store_player_position()
+		# Reduced motion freezes ambient time and caps atmosphere redraws.
 		if not _reduced_motion:
 			_clock = fmod(_clock + delta, 3600.0)
 			_redraw_time += delta
 			if _redraw_time >= 1.0 / 30.0:
 				_redraw_time = 0.0
 				_atmosphere.queue_redraw()
+	# Alternate NPC frames without animating for reduced-motion users.
 	var frame := 0 if _reduced_motion else int(_clock / 0.7) % 2
 	if frame != _npc_frame:
 		_npc_frame = frame
@@ -381,6 +406,7 @@ func _process(delta: float) -> void:
 			_npcs[i].texture = _npc_frames[i * 2 + frame]
 	_update_focus()
 
+# Choose the nearest visible interactable target in the current zone.
 func closest_target() -> Dictionary:
 	if not is_instance_valid(_player) or GameState.data.is_empty():
 		return {}
@@ -396,12 +422,14 @@ func closest_target() -> Dictionary:
 		nearest = _consider(nearest, "compost", 0, COMPOST_POSITION)
 	return _consider(nearest, "water", 0, WATER_POSITION)
 
+# Keep distant candidates so guidance can lead the player instead of hiding targets.
 func _consider(nearest: Dictionary, kind: String, index: int, point: Vector2) -> Dictionary:
 	var distance := player_position().distance_to(point)
 	if nearest.is_empty() or distance < float(nearest["distance"]):
 		return {"kind": kind, "index": index, "distance": distance}
 	return nearest
 
+# Resolve a target descriptor to its world-space interaction anchor.
 func _target_position(target: Dictionary) -> Vector2:
 	var index := int(target.get("index", 0))
 	match String(target.get("kind", "")):
@@ -418,6 +446,7 @@ func _target_position(target: Dictionary) -> Vector2:
 			return COMPOST_POSITION
 	return player_position()
 
+# Interact only while unpaused; distant targets produce a walking hint, not teleportation.
 func interact() -> void:
 	if not enabled or get_tree().paused:
 		return
@@ -429,6 +458,7 @@ func interact() -> void:
 		return
 	_interact_target(target)
 
+# Route nearby interactions to state APIs or the main scene's modal flows.
 func _interact_target(target: Dictionary) -> void:
 	var kind := String(target["kind"])
 	var index := int(target["index"])
@@ -454,6 +484,7 @@ func _interact_target(target: Dictionary) -> void:
 			interaction.emit(kind, index)
 	_update_focus()
 
+# Animate the action and place matching feedback at the affected world position.
 func play_action(action: String) -> void:
 	if is_instance_valid(_player):
 		_player.play_action(action)
@@ -464,6 +495,7 @@ func play_action(action: String) -> void:
 	elif action in ["plant", "compost", "collect"]:
 		_spawn_burst(player_position(), action)
 
+# Limit the water shortcut to living plots that actually need moisture.
 func _nearest_water_target() -> Dictionary:
 	var nearest: Dictionary = {}
 	for plot in _plots:
@@ -471,6 +503,7 @@ func _nearest_water_target() -> Dictionary:
 			nearest = _consider(nearest, "plot", plot.index, plot.position)
 	return nearest
 
+# Water the closest thirsty plot only within normal interaction range.
 func water_nearest() -> void:
 	if not enabled or get_tree().paused or not is_instance_valid(_player):
 		return
@@ -486,6 +519,7 @@ func water_nearest() -> void:
 		play_action("water")
 	AudioManager.play_sfx("water" if watered else "click")
 
+# Skip decorative particles entirely when reduced motion is enabled.
 func _spawn_burst(point: Vector2, kind: String) -> void:
 	if bool(GameState.settings.get("reduced_motion", false)):
 		return
@@ -495,6 +529,7 @@ func _spawn_burst(point: Vector2, kind: String) -> void:
 	add_child(burst)
 	_bursts.append(burst)
 
+# Map keyboard, mouse, and touch to the same range-checked interaction routes.
 func _unhandled_input(event: InputEvent) -> void:
 	if not enabled or get_tree().paused or not is_instance_valid(_player):
 		return
@@ -514,8 +549,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventScreenTouch and event.pressed:
 		_click_target(get_global_transform_with_canvas().affine_inverse() * event.position)
 
+# Route pointer taps by hit area without moving the player or bypassing range checks.
 func _click_target(point: Vector2) -> void:
 	var now := Time.get_ticks_msec()
+	# Ignore rapid repeat taps so one pointer gesture cannot trigger a target twice.
 	if now - _last_pointer_ms < 180:
 		return
 	for plot in _plots:
@@ -559,6 +596,7 @@ func _click_target(point: Vector2) -> void:
 		else:
 			_show_hint("برای پر کردن آب‌پاش، به حوض نزدیک شو.")
 
+# Synchronize selection, prompts, water shortcut, and guidance with the nearest target.
 func _update_focus() -> void:
 	var nearest := closest_target()
 	var near := enabled and not nearest.is_empty() and float(nearest.get("distance", INF)) <= INTERACTION_DISTANCE
@@ -597,6 +635,7 @@ func _update_focus() -> void:
 		hint = _hint_override
 	_set_hint(hint)
 
+# Choose the Persian action label from the target's current gameplay state.
 func _action_text(target: Dictionary) -> String:
 	match String(target.get("kind", "")):
 		"plot":
@@ -623,6 +662,7 @@ func _action_text(target: Dictionary) -> String:
 			return "دکمهٔ عمل · مدیریت کمپوست"
 	return ""
 
+# Reflect plot preparation and planting state in the prompt icon.
 func _target_icon(target: Dictionary) -> String:
 	match String(target.get("kind", "")):
 		"plot":
@@ -638,20 +678,24 @@ func _target_icon(target: Dictionary) -> String:
 			return "soil"
 	return "water"
 
+# Give distant targets a consistent movement instruction.
 func _walk_hint(target: Dictionary) -> String:
 	var names := {"plot": "بستر خاک", "npc": "راهنما", "trash": "مواد آلی", "water": "حوض", "compost": "کارگاه کمپوست"}
 	return "به " + String(names.get(target.get("kind", ""), "هدف")) + " نزدیک شو؛ با جوی‌استیک حرکت کن و برای تعامل دکمهٔ «عمل» را بزن."
 
+# Temporarily override contextual guidance for range errors or unavailable actions.
 func _show_hint(text: String) -> void:
 	_hint_override = text
 	_hint_time = 3.0
 	_set_hint(text)
 
+# Emit only when guidance changes to avoid redundant accessibility updates.
 func _set_hint(text: String) -> void:
 	if text != _last_hint:
 		_last_hint = text
 		hint_changed.emit(text)
 
+# Draw the active chapter background beneath the live actor layer.
 func _draw() -> void:
 	if _background != null:
 		draw_texture_rect(_background, Rect2(Vector2.ZERO, VIRTUAL_SIZE), false)
@@ -662,6 +706,7 @@ class ActionBurst:
 	var life := 0.0
 	var particles: Array[Dictionary] = []
 
+	# Seed a short radial burst with randomized speed, gravity bias, and size.
 	func _ready() -> void:
 		life = 0.72
 		for i in range(12):
@@ -669,6 +714,7 @@ class ActionBurst:
 			var speed := randf_range(28.0, 70.0)
 			particles.append({"position": Vector2.ZERO, "velocity": Vector2(cos(angle), sin(angle)) * speed - Vector2(0, 35), "size": randf_range(2.0, 4.5)})
 
+	# Move particles under gravity until the burst expires and frees itself.
 	func _process(delta: float) -> void:
 		life -= delta
 		for particle in particles:
@@ -678,6 +724,7 @@ class ActionBurst:
 		if life <= 0.0:
 			queue_free()
 
+	# Fade action-colored particles out over the burst's remaining lifetime.
 	func _draw() -> void:
 		var alpha := clampf(life / 0.72, 0.0, 1.0)
 		for particle in particles:
@@ -695,6 +742,7 @@ class Atmosphere:
 	extends Node2D
 	var world: WorldController
 
+	# Render weather, wildlife, night lighting, and target arrows over the world.
 	func _draw() -> void:
 		if not is_instance_valid(world):
 			return
@@ -724,6 +772,7 @@ class Atmosphere:
 			for i in range(count):
 				var point := Vector2(fposmod(float(i * 149 + 43) - time * 43.0, 1280.0), fposmod(float(i * 97 + 39) + time * 310.0, 720.0))
 				draw_line(point, point + Vector2(-4, 13), Color(0.79, 0.91, 1.0, 0.37), 1.0)
+		# Wildlife appears only after planting raises the zone's biodiversity.
 		if world._biodiversity >= 2:
 			for i in range(4):
 				var point := Vector2(400.0 + float(i) * 135.0 + sin(time * 0.6 + float(i) * 2.0) * 35.0, 320.0 + float(i % 2) * 170.0 + cos(time * 0.7 + float(i)) * 18.0)
@@ -738,6 +787,7 @@ class Atmosphere:
 				var point := Vector2(fposmod(180.0 + float(i) * 330.0 + time * 25.0, 1280.0), 65.0 + float(i) * 28.0 + sin(time + float(i)) * 6.0)
 				var wing_y := -3.0 + sin(time * 4.0 + float(i)) * 2.0
 				draw_polyline(PackedVector2Array([point + Vector2(-6, wing_y), point, point + Vector2(6, wing_y)]), Color(0.15, 0.25, 0.24, 0.68), 1.5)
+		# Apply night lighting after the daytime scenery and weather layers.
 		var night := GameState.night_amount()
 		if night > 0.0:
 			draw_rect(Rect2(Vector2.ZERO, VIRTUAL_SIZE), Color(0.05, 0.1, 0.24, 0.7 * night))
@@ -748,6 +798,7 @@ class Atmosphere:
 				var star_point := Vector2(fposmod(float(star * 149 + 63), 1220.0) + 30.0, 28.0 + fposmod(float(star * 47), 170.0))
 				var twinkle := 0.45 + 0.35 * sin(time * 1.5 + float(star))
 				draw_circle(star_point, 1.4 if star % 4 else 2.2, Color(0.92, 0.95, 1.0, twinkle * night))
+			# Light only lamps that exist in the current zone's scenery.
 			if world._zone in ["city", "park"]:
 				for lamp in [Vector2(545, 290), Vector2(825, 605)]:
 					draw_circle(lamp, 54.0, Color(1.0, 0.77, 0.38, 0.08 * night))

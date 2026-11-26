@@ -1,3 +1,4 @@
+# Exercises progression, persistence, assets, and live UI flows through gameplay APIs.
 extends Node
 
 const STATE_SCRIPT = preload("res://scripts/game_state.gd")
@@ -9,10 +10,13 @@ var state
 var failures: Array[String] = []
 var checks := 0
 
+# Defer execution until the scene tree and autoloads are ready.
 func _ready() -> void:
 	call_deferred("_run")
 
+# Run every regression group, clean isolated saves, and fail the process on any error.
 func _run() -> void:
+	# Isolated save paths keep tests from overwriting a player's normal saves.
 	for path in [SAVE_FILE, BACKUP_FILE, SAVE_FILE + ".tmp", BACKUP_FILE + ".tmp"]:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)
@@ -45,6 +49,7 @@ func _run() -> void:
 	_test_mission_regressions()
 	_test_polished_assets()
 	_test_runtime_images()
+	# Let live UI checks finish before their temporary files are removed.
 	await _test_ui_smoke()
 	for path in [SAVE_FILE, BACKUP_FILE, SAVE_FILE + ".tmp", BACKUP_FILE + ".tmp"]:
 		if FileAccess.file_exists(path):
@@ -58,6 +63,7 @@ func _run() -> void:
 		push_error("ROOTS_TEST_FAILURE: " + failure)
 	get_tree().quit(0 if failures.is_empty() else 1)
 
+# Drive chapter tasks through gameplay APIs instead of editing mission progress.
 func _complete_chapter(chapter_id: int) -> void:
 	var chapter: Dictionary = state.current_chapter()
 	state.set_zone(String(chapter.location))
@@ -113,6 +119,7 @@ func _complete_chapter(chapter_id: int) -> void:
 		state.talk_npc(0)
 		_check(state.task_count("talk_guide") == before, "duplicate dialogue does not advance a task")
 
+# Plant only the remaining task count, replenishing seeds through guide dialogue.
 func _plant_needed(amount: int, native_only: bool) -> void:
 	var native := ["cypress", "native_oak", "pomegranate", "arghavan", "olive", "willow"]
 	var all := ["cypress", "native_oak", "pomegranate", "arghavan", "olive", "willow"]
@@ -134,6 +141,7 @@ func _plant_needed(amount: int, native_only: bool) -> void:
 		state.refill_water()
 		state.advance_day()
 
+# Alternate watering and day advances so plants survive until the task is met.
 func _water_needed(amount: int) -> void:
 	var guard := 0
 	while amount > 0 and guard < 20:
@@ -153,6 +161,7 @@ func _water_needed(amount: int) -> void:
 			elif guard % 3 == 0:
 				state.advance_day()
 
+# Reuse an unnamed planted plot so the memorial task has a valid target.
 func _write_memorial() -> void:
 	for index in range(6):
 		var plot: Dictionary = state.plots()[index]
@@ -161,6 +170,7 @@ func _write_memorial() -> void:
 			return
 	_check(false, "an unlabelled planted plot is available for a memorial")
 
+# Prove maturity is reachable through bounded daily care without debug edits.
 func _mature_needed(amount: int) -> void:
 	var guard := 0
 	while amount > 0 and guard < 30:
@@ -176,6 +186,7 @@ func _mature_needed(amount: int) -> void:
 		amount = 2 - state.task_count("mature_tree")
 	_check(guard < 30, "mature trees are reachable without debug state edits")
 
+# Corrupt the primary save to verify fallback uses the previous valid backup.
 func _test_save_and_backup() -> void:
 	_check(state.save_game(), "manual save writes a valid envelope")
 	var saved_day := int(state.data.day)
@@ -191,6 +202,7 @@ func _test_save_and_backup() -> void:
 	_check(int(state.data.day) == saved_day, "backup restores the last valid progression")
 	_check(state._read_save(SAVE_FILE).is_empty(), "corrupt save is rejected")
 
+# Force backup creation to fail and ensure the previous primary save is untouched.
 func _test_backup_failure() -> void:
 	var save_path := "user://roots-backup-failure-save.json"
 	var backup_path := "user://roots-missing-backup-dir/backup.json"
@@ -210,6 +222,7 @@ func _test_backup_failure() -> void:
 			DirAccess.remove_absolute(path)
 	backup_state.free()
 
+# Confirm corrupt saves disable Continue instead of starting an empty game.
 func _test_save_availability() -> void:
 	var save_path := "user://roots-invalid-save.json"
 	var backup_path := "user://roots-invalid-backup.json"
@@ -228,6 +241,7 @@ func _test_save_availability() -> void:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)
 
+# Verify valid settings persist while unknown keys and invalid types are rejected.
 func _test_settings_persistence() -> void:
 	var settings_path := "user://roots-settings-test.cfg"
 	if FileAccess.file_exists(settings_path):
@@ -255,6 +269,7 @@ func _test_settings_persistence() -> void:
 	if FileAccess.file_exists(settings_path):
 		DirAccess.remove_absolute(settings_path)
 
+# Guard memorial identity, story credit, and saved mission progress against regression.
 func _test_mission_regressions() -> void:
 	var save_path := "user://roots-mission-regression-save.json"
 	var backup_path := "user://roots-mission-regression-backup.json"
@@ -265,26 +280,31 @@ func _test_mission_regressions() -> void:
 	mission_state.new_game()
 	_check(mission_state.prepare_plot(0) and mission_state.plant_tree(0, "cypress"), "mission regression test plants a memorial tree")
 	_check(mission_state.save_memorial("garden", 0, "سرو امید", "پیامی برای آیندهٔ محله."), "mission regression test creates an early memorial")
+	# Replanting must preserve the plaque tied to this zone and plot index.
 	mission_state.plots("garden")[0].dead = true
 	mission_state.clear_dead_plot(0)
 	mission_state.plant_tree(0, "cypress")
 	_check(mission_state.has_memorial("garden", 0), "clearing and replanting a memorial bed preserves its existing plaque record")
 	_check(not mission_state.save_memorial("garden", 0, "سرو تازه", "پیام تازه"), "a replanted memorial bed cannot silently submit a duplicate plaque")
+	# Existing memorials must count on entry instead of causing a chapter deadlock.
 	mission_state.data.chapter = 4
 	mission_state.next_chapter()
 	_check(int(mission_state.data.chapter) == 5 and mission_state.task_count("write_memorial") >= 1 and mission_state.task_count("add_memorial") >= 1, "existing memorials prevent chapter-five mission deadlock")
+	# Global reading history is independent of the active chapter's task credit.
 	_check(mission_state.read_npc_story(0, 4) and mission_state.npc_story_count() == 1, "out-of-chapter stories still record global reading progress")
 	_check(mission_state.task_count("read_story") == 0, "out-of-chapter stories do not advance the active reading mission")
 	_check(mission_state.read_npc_story(0, 5) and mission_state.task_count("read_story") == 1, "current-chapter stories advance the active reading mission")
 	mission_state.read_npc_story(1, 5)
 	mission_state.read_npc_story(2, 5)
 	_check(mission_state.task_count("read_story") == 3, "three distinct chapter-five stories complete the reading mission")
+	# Chapter re-entry repairs task credit from previously recorded story history.
 	mission_state.data.chapter = 4
 	mission_state.data.progress = {}
 	mission_state.next_chapter()
 	_check(int(mission_state.data.chapter) == 5 and mission_state.task_count("read_story") == 3, "entering a chapter credits its previously read stories")
 	mission_state.data.progress = {}
 	_check(not mission_state.read_npc_story(0, 5) and mission_state.task_count("read_story") == 3, "replaying an already-read story repairs missing mission progress")
+	# Loading must repair missing task credit just like live chapter entry.
 	mission_state.data.progress = {}
 	mission_state.save_game()
 	mission_state.data = {}
@@ -294,6 +314,7 @@ func _test_mission_regressions() -> void:
 			DirAccess.remove_absolute(path)
 	mission_state.free()
 
+# Reject invalid saves and lock quiz and species content to their intended sets.
 func _test_validation() -> void:
 	var invalid: Dictionary = state.data.duplicate(true)
 	invalid.zone = "not-a-zone"
@@ -327,6 +348,7 @@ func _test_validation() -> void:
 		native_trees_ready = native_trees_ready and tree_ids.has(String(species.id))
 	_check(native_trees_ready, "exactly six native Iranian tree species are available and flower species are removed")
 
+# Cover daily growth, neglect, compost timing, and older save migrations.
 func _test_time_and_care() -> void:
 	var care_save := "user://roots-care-test-save.json"
 	var care_backup := "user://roots-care-test-backup.json"
@@ -336,6 +358,7 @@ func _test_time_and_care() -> void:
 	add_child(care)
 	care.new_game()
 	care.settings.day_length = 240.0
+	# Pausing time keeps the daily care assertions deterministic.
 	care.time_paused = true
 	_check(is_equal_approx(care.current_day_seconds(), 240.0), "day cycle defaults to four minutes")
 	_check(care.prepare_plot(0), "care test prepares a plot")
@@ -377,6 +400,7 @@ func _test_time_and_care() -> void:
 	_check(not care.is_night() and care.night_amount() == 0.0, "day state is restored after dawn")
 	var day_before := int(care.data.day)
 	care.data.time_of_day = 23.99
+	# Crossing midnight must advance the day without a player button.
 	care.time_paused = false
 	care._process(0.2)
 	_check(int(care.data.day) == day_before + 1, "automatic clock advances the day without a player button")
@@ -390,6 +414,7 @@ func _test_time_and_care() -> void:
 			plot.erase("healthy_days")
 			plot.erase("dead")
 			plot.erase("neglect_days")
+	# Build a valid version-one envelope so migration runs through normal validation.
 	var payload := JSON.stringify(legacy)
 	var envelope := JSON.stringify({"payload": payload, "checksum": payload.sha256_text()})
 	var file := FileAccess.open(care_save, FileAccess.WRITE)
@@ -406,11 +431,13 @@ func _test_time_and_care() -> void:
 	old_species.memorials = [{"key": "garden:0", "zone": "garden", "plot": 0, "name": "نهال", "message": "روایت فرضی", "day": 1, "species": "rose"}]
 	var tree_migrated: Dictionary = care._migrate_state(old_species)
 	_check(String(tree_migrated.zones.garden.plots[0].species) == "arghavan" and String(tree_migrated.zones.garden.plots[1].species) == "olive" and String(tree_migrated.memorials[0].species) == "arghavan", "version-two saves replace removed flower species with native trees")
+	# Species migration must not restart tutorial progress from older saves.
 	_check(tree_migrated.tutorials.has("first_run"), "progressed saves do not restart the first-run planting tutorial")
 	var malformed: Dictionary = care.data.duplicate(true)
 	malformed.version = 1
 	malformed.stats = {}
 	malformed.zones = {}
+	# Malformed legacy data must be rejected without crashing migration.
 	var malformed_payload := JSON.stringify(malformed)
 	var malformed_envelope := JSON.stringify({"payload": malformed_payload, "checksum": malformed_payload.sha256_text()})
 	file = FileAccess.open(care_save, FileAccess.WRITE)
@@ -422,6 +449,7 @@ func _test_time_and_care() -> void:
 			DirAccess.remove_absolute(path)
 	care.free()
 
+# Check story sourcing, fictional labels, narrator voices, and persisted progress.
 func _test_npc_stories() -> void:
 	var total := CONTENT.npc_story_total()
 	var unique_texts := {}
@@ -439,6 +467,7 @@ func _test_npc_stories() -> void:
 			count += 1 if not story.is_empty() else 0
 			unique_texts[String(story.get("text", ""))] = true
 			narrator_ready = narrator_ready and "من " in String(story.get("text", "")) and String(story.get("perspective", "")) == expected_perspectives[npc_index]
+			# Real martyr stories require citations; Raha's fiction must remain sourceless.
 			if npc_index == 2:
 				fictional_story_count += 1
 				fiction_ready = fiction_ready and bool(story.get("fictional", false)) and String(story.get("source_title", "")).is_empty() and String(story.get("source_url", "")).is_empty() and "تخیلی" in String(story.get("perspective", "")) and "پدر" in String(story.get("text", ""))
@@ -460,6 +489,7 @@ func _test_npc_stories() -> void:
 	state.data["npc_stories"] = []
 	_check(state.load_game() and state.npc_story_count() == total, "NPC story progress survives save and load")
 
+# Validate runtime imports and fixed asset formats that gameplay depends on.
 func _test_polished_assets() -> void:
 	var audio_files := [
 		"sfx_prepare.wav", "sfx_plant.wav", "sfx_grow.wav", "sfx_water.wav", "sfx_harvest.wav",
@@ -485,6 +515,7 @@ func _test_polished_assets() -> void:
 			music_ready = false
 		stream = null
 	_check(music_ready, "all four user-supplied music tracks load as playable MP3 streams")
+	# Test loop flags on duplicates without mutating cached source streams.
 	var music_source := ResourceLoader.load("res://assets/audio/music_path.mp3", "AudioStreamMP3", ResourceLoader.CACHE_MODE_IGNORE) as AudioStreamMP3
 	var looped_music := music_source.duplicate() as AudioStreamMP3
 	looped_music.loop = true
@@ -532,6 +563,7 @@ func _test_polished_assets() -> void:
 		var scene_texture := ResourceLoader.load("res://assets/art/scene_" + scene + ".svg", "Texture2D", ResourceLoader.CACHE_MODE_IGNORE) as Texture2D
 		scene_assets_ready = scene_assets_ready and scene_texture != null and scene_texture.get_size() == Vector2(1280, 720)
 	_check(scene_assets_ready and scene_keys.size() == 8, "all eight unique chapter backgrounds load at 1280x720")
+	# Shared bed geometry must preserve access and separation at mature stages.
 	var plot_layout_ready := WorldController.PLOT_POSITIONS.size() == 6 and GardenPlot.HIT_RECT.size.y <= 120.0
 	for i in range(WorldController.PLOT_POSITIONS.size()):
 		plot_layout_ready = plot_layout_ready and PlayerController.WALK_BOUNDS.has_point(WorldController.PLOT_POSITIONS[i])
@@ -558,12 +590,14 @@ func _test_polished_assets() -> void:
 	var title_music_stream := AudioManager._stream("music_title", true) as AudioStreamMP3
 	_check(click_stream != null and wind_stream != null and wind_stream.loop_mode == AudioStreamWAV.LOOP_FORWARD and title_music_stream != null and title_music_stream.loop, "audio lookup resolves imported WAV effects and supplied MP3 music with correct looping")
 	_check(AudioManager._stream("sfx_missing") == null, "missing optional audio returns a null stream instead of reaching playback")
+	# Headless checks must not depend on an audio device or ambience startup.
 	AudioManager.set_zone("garden")
 	var headless_ambience_silent := true
 	for player in AudioManager._ambience_players:
 		headless_ambience_silent = headless_ambience_silent and player.stream == null and not player.playing
 	_check(headless_ambience_silent, "headless runs do not load or play ambience streams")
 
+# Scan runtime art directly so unimported or zero-sized images fail the suite.
 func _test_runtime_images() -> void:
 	var directory := DirAccess.open("res://assets/art")
 	var image_count := 0
@@ -577,10 +611,12 @@ func _test_runtime_images() -> void:
 			runtime_images_ready = runtime_images_ready and texture != null and texture.get_width() > 0 and texture.get_height() > 0
 	_check(image_count >= 60 and runtime_images_ready, "every runtime art image imports successfully with nonzero dimensions")
 
+# Drive the real main scene through title, gameplay, settings, save, and ending flows.
 func _test_ui_smoke() -> void:
 	var ui_save := "user://roots-ui-test-save.json"
 	var ui_backup := "user://roots-ui-test-backup.json"
 	var ui_settings := "user://roots-ui-test-settings.cfg"
+	# Snapshot singleton settings because their persistence path is temporarily redirected.
 	var original_settings := GameState.settings.duplicate()
 	var original_settings_path := GameState.settings_path
 	GameState.save_path = ui_save
@@ -594,6 +630,7 @@ func _test_ui_smoke() -> void:
 	await get_tree().process_frame
 	var original_backup_path := GameState.backup_path
 	var data_before_failed_save := GameState.data.duplicate(true)
+	# A failed save must abort the title transition and restore the previous game.
 	GameState.backup_path = "user://roots-ui-missing-backup/backup.json"
 	Engine.set_print_error_messages(false)
 	var exit_save_succeeded: bool = main._save_progress_for_exit()
@@ -636,6 +673,7 @@ func _test_ui_smoke() -> void:
 		var title_label := labels[0] as Label
 		title_labels_ready = title_labels_ready and title_label != null and expected_titles.has(title_label.text) and title_label.autowrap_mode == TextServer.AUTOWRAP_OFF
 	_check(title_labels_ready, "title image buttons keep readable single-line Persian labels")
+	# Preserve chapter state while exercising scene-specific music selection.
 	var original_day := int(GameState.data.day)
 	var original_zone := String(GameState.data.zone)
 	var original_time := float(GameState.data.time_of_day)
@@ -700,6 +738,7 @@ func _test_ui_smoke() -> void:
 	main._controls()
 	await get_tree().process_frame
 	await get_tree().process_frame
+	# Containers need a frame to apply sizes before guide layout is measured.
 	var guide_titles := ["حرکت کردن", "اطلاعات و گفت‌وگو", "آبیاری نهال", "آماده‌کردن خاک و کاشت", "جمع‌آوری و کمپوست", "گذر زمان و مراقبت", "مأموریت‌ها و فصل بعد", "نقشه و فصل‌های قبلی", "یادبود و روایت‌ها", "ذخیره خودکار و ادامه", "توقف و تنظیمات"]
 	var guide_steps_ready := is_instance_valid(main.modal)
 	for title in guide_titles:
@@ -796,6 +835,7 @@ func _test_ui_smoke() -> void:
 		GameState.data.progress[task.id] = int(task.target)
 	main._finish_chapter()
 	_check(is_instance_valid(main.modal) and finish_chapter in GameState.data.completed, "finishing a ready chapter opens its completion popup")
+	# Dismissing completion must leave chapter advancement available from Missions.
 	main._close_modal()
 	main._missions()
 	var retry_finish_button := _ui_find_button(main._modal_footer, "پایان فصل")
@@ -805,6 +845,7 @@ func _test_ui_smoke() -> void:
 		await get_tree().process_frame
 		await get_tree().process_frame
 	_check(int(GameState.data.chapter) == finish_chapter + 1 and is_instance_valid(main.modal), "finish action advances the chapter after the popup was dismissed")
+	# Restore the exact pre-transition snapshot rather than replaying completion.
 	GameState.data = data_before_finish
 	main._show_game()
 	await get_tree().process_frame
@@ -929,6 +970,7 @@ func _test_ui_smoke() -> void:
 	_check(_ui_rtl_ready(main.modal), "memorial labels, name input and message editor use RTL alignment")
 	main._close_modal()
 	_check(GameState.save_memorial("garden", 0, "سرو امید", "پیامی برای آیندهٔ محله."), "UI flow saves a memorial record")
+	# Inject malformed records to ensure memorial rendering remains defensive.
 	GameState.data.memorials.append({"zone": "invalid", "plot": 99, "species": "invalid"})
 	GameState.data.memorials.append("invalid")
 	main._memorials()
@@ -976,6 +1018,7 @@ func _test_ui_smoke() -> void:
 	_check((main.modal.find_child("value_music", true, false) as Label).text == "۳۰٪" and (main.modal.find_child("value_sound", true, false) as Label).text == "۴۰٪" and (main.modal.find_child("value_day_length", true, false) as Label).text == "۶ دقیقه", "settings sliders show live formatted values")
 	touch_toggle.button_pressed = false
 	motion_toggle.button_pressed = true
+	# Toggle signals settle on the physics frame before world settings are asserted.
 	await get_tree().physics_frame
 	_check(not bool(GameState.settings.touch) and bool(GameState.settings.reduced_motion) and main.world._reduced_motion, "settings toggles immediately update touch controls and reduced motion")
 	main._close_modal()
@@ -1022,6 +1065,7 @@ func _test_ui_smoke() -> void:
 	main._close_modal()
 	_check(not get_tree().paused and not AudioManager._paused, "closing the pause screen resumes the tree and audio")
 	main._settings()
+	# Focus changes must preserve whether pause-preview audio was intentionally active.
 	var audio_before_focus := AudioManager.is_paused()
 	main._notification(NOTIFICATION_APPLICATION_FOCUS_OUT)
 	_check(AudioManager.is_paused(), "focus loss pauses audio on every Android vendor")
@@ -1068,6 +1112,7 @@ func _test_ui_smoke() -> void:
 	main._close_modal()
 	main.free()
 	await get_tree().process_frame
+	# Restore singleton state and remove every smoke-test save before returning.
 	GameState.data = {}
 	GameState.settings = original_settings
 	GameState.settings_path = original_settings_path
@@ -1075,6 +1120,7 @@ func _test_ui_smoke() -> void:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)
 
+# Verify live layout, scene selection, collisions, touch targets, and interaction routing.
 func _test_live_world(main) -> void:
 	var world = main.world
 	_check(is_instance_valid(world._player) and world._player._frames.size() == 24, "player caches all six animation rows")
@@ -1124,6 +1170,7 @@ func _test_live_world(main) -> void:
 	world._player.play_action("plant")
 	_check(world._player._row == 5 and world._player._frame == 0, "planting uses the dedicated fifth action row")
 	world.play_action("plant")
+	# Bursts self-free after their lifetime; the tracker must release stale nodes.
 	await get_tree().create_timer(0.8).timeout
 	_check(world._bursts.is_empty(), "finished action bursts are released from the world")
 	_check(world._scene == "garden_overgrown" and world._background == world._backgrounds["garden_overgrown"], "first chapter selects the forgotten-garden scene")
@@ -1132,6 +1179,7 @@ func _test_live_world(main) -> void:
 	var chapter_scenes_ready := true
 	var planting_areas_ready := true
 	var map_collisions_ready := true
+	# Chapter reloads must change artwork while retaining one reachable planting grid.
 	for chapter in CONTENT.CHAPTERS:
 		var chapter_id := int(chapter.id)
 		var expected_scene := String(WorldController.CHAPTER_SCENES[chapter_id])
@@ -1169,6 +1217,7 @@ func _test_live_world(main) -> void:
 	world._click_target(school_compost)
 	_check(is_instance_valid(main.modal) and _ui_contains_text(main.modal, "ایستگاه کمپوست"), "school compost also opens with direct touch or click")
 	main._close_modal()
+	# Off-location travel must not leak memorial ambience into another scene.
 	GameState.data.chapter = 5
 	GameState.data.zone = "school"
 	world.reload_zone()
@@ -1181,6 +1230,7 @@ func _test_live_world(main) -> void:
 	GameState.data.zone = "garden"
 	world.reload_zone()
 	_check(world._scene == "memorial_garden" and world._memorial, "memorial chapter selects its dedicated scene")
+	# Restore the original location before later UI checks depend on it.
 	GameState.data.zone = original_zone
 	GameState.data.chapter = original_chapter
 	world.reload_zone()
@@ -1193,11 +1243,13 @@ func _test_live_world(main) -> void:
 	main._close_modal()
 	GameState.data.chapter = mission_chapter
 
+# Open one named screen, assert it exists, and close it for the next check.
 func _show_ui_modal(main, method_name: String, description: String) -> void:
 	main.call(method_name)
 	_check(is_instance_valid(main.modal), description)
 	main._close_modal()
 
+# Recursively enforce RTL text while allowing explicitly centered HUD labels.
 func _ui_rtl_ready(root: Node) -> bool:
 	for child in root.get_children():
 		if child is Label:
@@ -1226,6 +1278,7 @@ func _ui_rtl_ready(root: Node) -> bool:
 			return false
 	return true
 
+# Search descendants so checks work with nested footer and card layouts.
 func _ui_find_button(root: Node, text: String) -> Button:
 	for child in root.get_children():
 		if child is Button and child.text == text:
@@ -1235,6 +1288,7 @@ func _ui_find_button(root: Node, text: String) -> Button:
 			return found
 	return null
 
+# Check a whole UI subtree for a labeled action button.
 func _ui_contains_button(root: Node, text: String) -> bool:
 	for child in root.get_children():
 		if child is Button and child.text == text:
@@ -1243,6 +1297,7 @@ func _ui_contains_button(root: Node, text: String) -> bool:
 			return true
 	return false
 
+# Find partial label matches anywhere in a UI subtree.
 func _ui_contains_text(root: Node, text: String) -> bool:
 	for child in root.get_children():
 		if child is Label and text in child.text:
@@ -1251,6 +1306,7 @@ func _ui_contains_text(root: Node, text: String) -> bool:
 			return true
 	return false
 
+# Accumulate failures so one broken assertion does not hide later regressions.
 func _check(condition: bool, description: String) -> void:
 	checks += 1
 	if not condition:

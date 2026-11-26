@@ -1,6 +1,7 @@
 class_name GardenPlot
 extends Node2D
 
+# Render and interact with one planting bed, including growth, moisture, selection, and actions.
 const SOIL_RECT: Rect2 = Rect2(-49.0, -23.0, 98.0, 46.0)
 const BED_RECT: Rect2 = Rect2(-55.0, -29.0, 110.0, 60.0)
 const HIT_RECT: Rect2 = Rect2(-56.0, -96.0, 112.0, 120.0)

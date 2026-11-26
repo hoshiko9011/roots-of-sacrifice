@@ -1,3 +1,4 @@
+// Build a standalone, network-free HTML preview from the project's rasterized game assets.
 import fs from 'node:fs';
 import path from 'node:path';
 

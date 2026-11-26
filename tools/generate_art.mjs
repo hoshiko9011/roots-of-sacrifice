@@ -1,9 +1,5 @@
 #!/usr/bin/env node
-/**
- * Deterministic, dependency-free pixel-art generator for Roots of Sacrifice.
- * Run from any directory with: node tools/generate_art.mjs
- * Only assets/art SVGs and ASSET_MANIFEST.md are written; source PNGs are preserved.
- */
+// Deterministic Roots of Sacrifice art generator; writes SVGs and the manifest while preserving source PNGs.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -11,12 +7,15 @@ import crypto from 'node:crypto';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
+// Resolve paths from this script so generation works from any working directory.
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ART = path.join(ROOT, 'assets', 'art');
 
+// Cache decoded source icons and their colors for deterministic conversion and validation.
 const USER_ICON_CACHE = new Map();
 const USER_ICON_COLORS = new Set();
 
+// Share one palette so every generated asset stays visually consistent.
 const P = Object.freeze({
   forest: '#173f35',
   leaf: '#4f7d42',
@@ -43,26 +42,33 @@ const P = Object.freeze({
   white: '#ffffff',
 });
 
+// Emit a rectangle with optional SVG attributes.
 const r = (x, y, w, h, fill, extra = '') =>
   `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"${extra}/>`;
 
+// Emit a rounded rectangle for framed UI and soft silhouettes.
 const roundedRect = (x, y, w, h, radius, fill, extra = '') =>
   `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${radius}" fill="${fill}"${extra}/>`;
 
+// Emit a filled or stroked SVG path.
 const p = (d, fill, extra = '') =>
   `<path d="${d}" fill="${fill}"${extra}/>`;
 
+// Wrap SVG geometry in a translated group with optional metadata.
 const g = (body, x = 0, y = 0, extra = '') =>
   `<g transform="translate(${x} ${y})"${extra}>${body}</g>`;
 
+// Build a consistent outline attribute string for pixel geometry.
 const stroke = (color = P.ink, width = 2, extra = '') =>
   `stroke="${color}" stroke-width="${width}" stroke-linecap="butt" stroke-linejoin="miter"${extra}`;
 
+// Serialize a crisp-edged SVG document with deterministic whitespace.
 const svg = (width, height, body, viewBox = `0 0 ${width} ${height}`) =>
   `<?xml version="1.0" encoding="UTF-8"?>\n` +
   `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${viewBox}" shape-rendering="crispEdges">\n` +
   `${body}\n</svg>\n`;
 
+// Decode non-interlaced 8-bit RGBA PNGs without external image libraries.
 function decodePng(buffer) {
   const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
   if (!buffer.subarray(0, 8).equals(signature)) throw new Error('Invalid user icon PNG signature');
@@ -121,6 +127,7 @@ function decodePng(buffer) {
   return { width, height, pixels };
 }
 
+// Cache source icons and collect their colors for later palette validation.
 function loadUserIcon(fileName) {
   if (USER_ICON_CACHE.has(fileName)) return USER_ICON_CACHE.get(fileName);
   const image = decodePng(fs.readFileSync(path.join(ART, 'source', fileName)));
@@ -133,6 +140,7 @@ function loadUserIcon(fileName) {
   return image;
 }
 
+// Merge identical pixel runs into rectangles so source icons convert losslessly and compactly.
 function pngPixelSvg(image) {
   const rectangles = [];
   let previous = new Map();
@@ -173,6 +181,7 @@ function pngPixelSvg(image) {
   }).join('');
 }
 
+// Return a seeded PRNG so procedural textures repeat exactly across runs.
 function rng(seed) {
   let state = seed >>> 0;
   return () => {
@@ -184,6 +193,7 @@ function rng(seed) {
   };
 }
 
+// Scatter seeded, grid-aligned marks over a solid 64-pixel tile.
 function texture(base, seed, colors, count = 32, size = 2) {
   const random = rng(seed);
   let out = r(0, 0, 64, 64, base);
@@ -197,6 +207,7 @@ function texture(base, seed, colors, count = 32, size = 2) {
   return out;
 }
 
+// Combine seeded ground texture with fixed blades for deterministic terrain.
 function grass(seed, dry = false) {
   let out = r(0, 0, 64, 64, dry ? P.soil : P.leaf);
   const random = rng(seed);
@@ -216,6 +227,7 @@ function grass(seed, dry = false) {
   return out;
 }
 
+// Approximate rounded silhouettes with grid-aligned rectangles.
 function blob(x, y, w, h, fill) {
   if (w <= 8 || h <= 16) return r(x, y, w, h, fill);
   return r(x + 4, y, w - 8, h, fill) +
@@ -223,6 +235,7 @@ function blob(x, y, w, h, fill) {
     r(x, y + 8, w, h - 16, fill);
 }
 
+// Draw a compact leaf with an optional contrasting vein.
 function leaf(x, y, size, fill, vein = false) {
   const half = Math.floor(size / 2);
   let out = r(x - half, y - 1, size, 4, fill) +
@@ -231,6 +244,7 @@ function leaf(x, y, size, fill, vein = false) {
   return out;
 }
 
+// Build staggered paving lines with seeded wear marks.
 function paved(seed, base = P.cream) {
   let out = r(0, 0, 64, 64, base);
   out += r(0, 15, 64, 2, P.ink) + r(0, 31, 64, 2, P.ink) + r(0, 47, 64, 2, P.ink);
@@ -245,6 +259,7 @@ function paved(seed, base = P.cream) {
   return out;
 }
 
+// Select the ordered 64-pixel tile artwork consumed by the game atlas.
 function tileArt(index) {
   switch (index) {
     case 0: return grass(101);
@@ -512,6 +527,7 @@ function tileArt(index) {
   }
 }
 
+// Pack the 32 tiles in runtime row-major order with stable cell metadata.
 function buildTiles() {
   let body = '';
   for (let i = 0; i < 32; i += 1) {
@@ -522,10 +538,12 @@ function buildTiles() {
   return { name: 'tiles.svg', width: 512, height: 256, usedCells: 32, source: svg(512, 256, body.trimEnd()) };
 }
 
+// Draw the shared grounding shadow beneath character frames.
 function shadow() {
   return r(18, 56, 28, 4, P.ink, ' opacity="0.22"');
 }
 
+// Choose a coordinated palette for each character variant.
 function characterPalette(config = {}) {
   const colors = {
     edge: '#293238', skin: '#dfac82', skinLight: '#f3cca1', skinShade: '#b97b59',
@@ -560,12 +578,14 @@ function characterPalette(config = {}) {
   return colors;
 }
 
+// Convert local character swatches to SVG without mutating the shared palette.
 function characterPixels(pixels, colors = characterPalette()) {
   // Local SVG swatches leave the shared environment palette untouched.
   return pixels.map(([x, y, w, h, shade]) =>
     r(x, y, w, h, P.ink, ` style="fill:${colors[shade]}"`)).join('');
 }
 
+// Draw a closed or open hand using the active character palette.
 function characterHand(x, y, colors = characterPalette(), open = false) {
   let out = characterPixels([
     [x + 1, y, 3, 5, 'edge'], [x, y + 1, 5, 3, 'edge'],
@@ -579,6 +599,7 @@ function characterHand(x, y, colors = characterPalette(), open = false) {
   return out;
 }
 
+// Cycle a four-frame stride while keeping planted action frames stable.
 function playerLegs(frame, planted = false, side = false) {
   const stride = planted ? 0 : [0, 1, 0, -1][frame % 4];
   const passing = !planted && frame % 4 === 2;
@@ -598,6 +619,7 @@ function playerLegs(frame, planted = false, side = false) {
   return out;
 }
 
+// Draw the player's backpack in front or side-view proportions.
 function backpack(x = 22, y = 32, side = false) {
   const w = side ? 12 : 18;
   return characterPixels([
@@ -611,6 +633,7 @@ function backpack(x = 22, y = 32, side = false) {
   ]);
 }
 
+// Draw the player's scarf and trailing tail.
 function scarf(y = 29) {
   return characterPixels([
     [23, y, 18, 5, 'edge'], [24, y, 16, 3, 'redShade'],
@@ -622,6 +645,7 @@ function scarf(y = 29) {
   ]);
 }
 
+// Select back, side, or front head artwork for directional frames.
 function playerHead(direction = 'down') {
   if (direction === 'up') return characterPixels([
     [26, 9, 12, 2, 'edge'], [23, 11, 18, 3, 'edge'], [22, 14, 21, 12, 'edge'],
@@ -667,6 +691,7 @@ function playerHead(direction = 'down') {
   ]);
 }
 
+// Compose front-facing walking, watering, and planting frames.
 function playerDown(frame, action = 'walk') {
   const swing = action === 'walk' ? [0, 1, 0, -1][frame % 4] : 0;
   let out = shadow() + playerLegs(frame, action !== 'walk');
@@ -730,6 +755,7 @@ function playerDown(frame, action = 'walk') {
   return out;
 }
 
+// Compose back-facing walking frames with the backpack visible.
 function playerUp(frame) {
   const swing = [0, 1, 0, -1][frame % 4];
   let out = shadow() + playerLegs(frame);
@@ -747,6 +773,7 @@ function playerUp(frame) {
   return out;
 }
 
+// Compose a side-facing frame and mirror it for right-facing movement.
 function playerSide(frame, facingRight) {
   const swing = [0, 1, 0, -1][frame % 4];
   let out = shadow() + playerLegs(frame, false, true);
@@ -766,9 +793,11 @@ function playerSide(frame, facingRight) {
     [25, 32, 3, 8, 'redShade'], [25, 32, 2, 7, 'red'], [25, 32, 1, 5, 'redLight'],
   ]);
   out += characterHand(31 + swing * 2, 45) + playerHead('side');
+  // Mirror inside the cell so right-facing frames keep the runtime's expected atlas order.
   return facingRight ? `<g transform="translate(64 0) scale(-1 1)">${out}</g>` : out;
 }
 
+// Map atlas rows to directions and action sequences expected by the game.
 function playerArt(row, col) {
   if (row === 0) return playerDown(col);
   if (row === 1) return playerUp(col);
@@ -778,6 +807,7 @@ function playerArt(row, col) {
   return playerDown(col, 'plant');
 }
 
+// Pack directional and action frames in the runtime's six-by-four order.
 function buildPlayer() {
   let body = '';
   for (let row = 0; row < 6; row += 1) {
@@ -788,6 +818,7 @@ function buildPlayer() {
   return { name: 'player.svg', width: 256, height: 384, usedCells: 24, source: svg(256, 384, body.trimEnd()) };
 }
 
+// Layer configurable hair, headwear, beard, and expression details.
 function npcHead(config, pose, bob) {
   const c = characterPalette(config);
   let out = '';
@@ -873,6 +904,7 @@ function npcHead(config, pose, bob) {
   return out;
 }
 
+// Pose NPC arms for idle, talking, happiness, thinking, or waving.
 function npcArms(config, pose, bob) {
   const c = characterPalette(config);
   const left = config.beard ? 17 : 18;
@@ -904,6 +936,7 @@ function npcArms(config, pose, bob) {
   return idleArm(left, true) + idleArm(right, false);
 }
 
+// Assemble one NPC frame from shared body parts and pose-specific details.
 function npcArt(config, pose) {
   const c = characterPalette(config);
   const bob = pose === 'idle1' ? -1 : 0;
@@ -967,6 +1000,7 @@ function npcArt(config, pose) {
   return out;
 }
 
+// Pack four characters and six poses in stable row-major order.
 function buildNpcs() {
   const configs = [
     { hair: P.sky, outfit: P.leaf, highlight: P.lime, beard: true, lapels: true },
@@ -984,6 +1018,7 @@ function buildNpcs() {
   return { name: 'npcs.svg', width: 384, height: 256, usedCells: 24, source: svg(384, 256, body.trimEnd()) };
 }
 
+// Draw the shared soil and shadow base used by every growth stage.
 function soilBaseline(seed) {
   let out = r(18, 56, 28, 4, P.ink, ' opacity="0.18"');
   out += blob(20, 52, 24, 8, P.ink);
@@ -997,14 +1032,17 @@ function soilBaseline(seed) {
   return out;
 }
 
+// Draw a vertical plant stem with a consistent outline.
 function stem(x, y0, y1, color = P.leaf, width = 4) {
   return p(`M${x} ${y0}V${y1}`, 'none', ` ${stroke(color, width)}`);
 }
 
+// Draw an orthogonal branch segment for stylized trees.
 function branch(x0, y0, x1, y1, color = P.soil, width = 4) {
   return p(`M${x0} ${y0}V${y0 + (y1 - y0) * 0.55}H${x1}V${y1}`, 'none', ` ${stroke(color, width)}`);
 }
 
+// Draw a larger outlined leaf for detailed plant stages.
 function detailLeaf(x, y, size, fill = P.leaf, light = P.lime) {
   const half = Math.floor(size / 2);
   let out = r(x - half - 1, y - 2, size + 2, 5, P.ink);
@@ -1016,6 +1054,7 @@ function detailLeaf(x, y, size, fill = P.leaf, light = P.lime) {
   return out;
 }
 
+// Fill an outlined canopy with seeded, grid-aligned color clusters.
 function foliage(x, y, w, h, base = P.leaf, light = P.lime, highlight = P.turquoise, seed = 1) {
   let out = blob(x, y, w, h, P.ink);
   out += blob(x + 2, y + 2, w - 4, h - 4, base);
@@ -1031,6 +1070,7 @@ function foliage(x, y, w, h, base = P.leaf, light = P.lime, highlight = P.turquo
   return out;
 }
 
+// Draw a small pixel flower with a contrasting center.
 function blossom(x, y, petal = P.rose, light = P.roseLight, size = 8) {
   const half = Math.floor(size / 2);
   let out = r(x - half - 1, y - 2, size + 2, 5, P.ink);
@@ -1043,16 +1083,19 @@ function blossom(x, y, petal = P.rose, light = P.roseLight, size = 8) {
   return out;
 }
 
+// Define the shared first growth stage for all tree species.
 function seedling(seed) {
   return soilBaseline(seed) + r(29, 48, 7, 4, P.brick) + r(30, 48, 3, 2, P.cream) +
     r(32, 54, 2, 6, P.forest);
 }
 
+// Define the shared second growth stage with two leaves.
 function sprout(seed) {
   return soilBaseline(seed) + stem(32, 54, 43, P.forest, 3) +
     detailLeaf(27, 44, 9, P.leaf, P.lime) + detailLeaf(37, 41, 10, P.lime, P.cream);
 }
 
+// Draw the cypress across six growth stages with a narrow silhouette.
 function cypress(stage) {
   if (stage === 0) return seedling(201);
   if (stage === 1) return sprout(201);
@@ -1074,6 +1117,7 @@ function cypress(stage) {
   return out;
 }
 
+// Scale the oak trunk and broad canopy through six growth stages.
 function oak(stage) {
   if (stage === 0) return seedling(202);
   if (stage === 1) return sprout(202);
@@ -1097,6 +1141,7 @@ function oak(stage) {
   return out;
 }
 
+// Add blossoms and fruit to the pomegranate at later growth stages.
 function pomegranate(stage) {
   if (stage === 0) return seedling(203);
   if (stage === 1) return sprout(203);
@@ -1120,6 +1165,7 @@ function pomegranate(stage) {
   return out;
 }
 
+// Build the arghavan's broad canopy and late-stage blossoms.
 function arghavan(stage) {
   if (stage === 0) return seedling(204);
   if (stage === 1) return sprout(204);
@@ -1147,6 +1193,7 @@ function arghavan(stage) {
   return out;
 }
 
+// Build the olive's small canopy and mature fruit details.
 function olive(stage) {
   if (stage === 0) return seedling(205);
   if (stage === 1) return sprout(205);
@@ -1172,6 +1219,7 @@ function olive(stage) {
   return out;
 }
 
+// Lengthen hanging strands as the willow advances through six stages.
 function willow(stage) {
   if (stage === 0) return seedling(206);
   if (stage === 1) return sprout(206);
@@ -1196,6 +1244,7 @@ function willow(stage) {
   return out;
 }
 
+// Pack six species by six stages in the runtime's planting atlas order.
 function buildPlants() {
   const draws = [cypress, oak, pomegranate, arghavan, olive, willow];
   let body = '';
@@ -1206,10 +1255,12 @@ function buildPlants() {
   }
   return { name: 'plants.svg', width: 512, height: 384, usedCells: 36, source: svg(512, 384, body.trimEnd()) };
 }
+// Draw the shared grounding shadow for environment props.
 function propShadow() {
   return r(16, 56, 32, 4, P.ink, ' opacity="0.20"');
 }
 
+// Draw the reusable wooden bench prop.
 function drawBench() {
   let out = propShadow();
   out += r(10, 26, 44, 12, P.ink) + r(14, 28, 36, 8, P.brick);
@@ -1220,6 +1271,7 @@ function drawBench() {
   return out;
 }
 
+// Draw the reusable courtyard fountain prop.
 function drawFountain() {
   let out = propShadow();
   out += r(12, 26, 40, 30, P.ink) + r(16, 22, 32, 38, P.ink);
@@ -1230,6 +1282,7 @@ function drawFountain() {
   return out;
 }
 
+// Rotate one arrow into a three-part recycling symbol.
 function recycleMark(x, y, scale = 1, color = P.cream) {
   const arrow = p('M11 1h6v4h4v5h-4v-2H9v5H5V6h4V4h2z', color);
   return `<g transform="translate(${x} ${y}) scale(${scale})">` +
@@ -1239,6 +1292,7 @@ function recycleMark(x, y, scale = 1, color = P.cream) {
     '</g>';
 }
 
+// Select the ordered prop artwork consumed by the game atlas.
 function propArt(row, col) {
   if (row === 0) {
     switch (col) {
@@ -1380,6 +1434,7 @@ function propArt(row, col) {
   }
 }
 
+// Pack all 32 props in stable row-major order with cell metadata.
 function buildProps() {
   let body = '';
   for (let row = 0; row < 4; row += 1) {
@@ -1390,15 +1445,18 @@ function buildProps() {
   return { name: 'props.svg', width: 512, height: 256, usedCells: 32, source: svg(512, 256, body.trimEnd()) };
 }
 
+// Draw a two-tone outlined rectangle for icon frames.
 function iconOutlinedRect(x, y, width, height, fill, radius = 4) {
   return roundedRect(x, y, width, height, radius, P.ink) +
     roundedRect(x + 2, y + 2, width - 4, height - 4, Math.max(2, radius - 2), fill);
 }
 
+// Draw a two-tone outlined blob for icon silhouettes.
 function iconOutlinedBlob(x, y, width, height, fill) {
   return blob(x, y, width, height, P.ink) + blob(x + 2, y + 2, width - 4, height - 4, fill);
 }
 
+// Draw the leaf icon used for growth and nature actions.
 function iconLeaf(x = 0, y = 0) {
   const body = p('M3 27h5v-4h4v-4h4v-4h4v-4h4V7h5V2h4v10h-4v4h-4v4h-4v4h-4v4H3z', P.ink) +
     p('M7 25h4v-4h4v-4h4v-4h4v-4h4V9h3V6h2v6h-4v4h-4v4h-4v4h-4v4H7z', P.leaf) +
@@ -1406,35 +1464,41 @@ function iconLeaf(x = 0, y = 0) {
   return g(body, x, y);
 }
 
+// Draw the heart icon for health and affection.
 function iconHeart() {
   return p('M4 4h8v4h8V4h8v4h4v10h-4v4h-4v4h-4v2h-8v-2H8v-4H4v-4H0V8h4z', P.ink) +
     p('M6 8h6v4h8V8h6v4h2v6h-4v4h-4v4h-4v2h-4v-2h-4v-4H8v-4H4v-6h2z', P.rose) +
     r(6, 10, 4, 4, P.roseLight);
 }
 
+// Draw the book icon for stories and journal entries.
 function iconBook() {
   return iconOutlinedRect(2, 5, 28, 24, P.cream, 4) + r(4, 22, 24, 4, P.brick) +
     r(14, 7, 4, 16, P.bark) + r(6, 10, 6, 2, P.forest) + r(6, 16, 6, 2, P.forest) +
     r(20, 10, 6, 2, P.forest) + r(20, 16, 6, 2, P.forest) + r(22, 7, 4, 8, P.leaf);
 }
 
+// Draw the star icon for rewards and achievements.
 function iconStar() {
   return p('M14 0h4v8h6v-4h4v8h8v4h-8v6h4v4h-8v-4h-6v8h-4v-8H8v4H4v-4h4v-6H0v-4h8V4h4V0z', P.ink) +
     p('M14 4h4v6h6v-2h2v6h6v2h-6v4h2v2h-6v-2h-6v6h-4v-6H8v2H6v-2h2v-4H2v-2h6V8h2V6h4z', P.gold) +
     r(14, 8, 4, 4, P.cream);
 }
 
+// Draw the water-drop icon for watering actions.
 function iconWater() {
   return p('M14 0h4v6h4v6h4v6h4v6h-4v4H4v-4H0v-6h4v-6h4V6h4V0h2z', P.ink) +
     p('M14 6h4v6h4v6h4v4h-4v4H6v-4H4v-4h4v-6h4V6h2z', P.turquoise) +
     r(8, 18, 4, 6, P.sky);
 }
 
+// Draw the soil icon for planting and compost.
 function iconSoil() {
   return iconOutlinedRect(2, 9, 28, 21, P.soil, 4) + r(4, 7, 24, 6, P.leaf) + r(6, 5, 20, 4, P.lime) +
     r(6, 16, 6, 4, P.brick) + r(18, 20, 6, 4, P.cream) + r(12, 12, 4, 4, P.barkLight);
 }
 
+// Draw the sun icon for time and weather.
 function iconSun() {
   let out = r(14, 0, 4, 6, P.gold) + r(14, 26, 4, 6, P.gold) + r(0, 14, 6, 4, P.gold) + r(26, 14, 6, 4, P.gold);
   out += r(4, 4, 4, 4, P.brick) + r(24, 4, 4, 4, P.brick) + r(4, 24, 4, 4, P.brick) + r(24, 24, 4, 4, P.brick);
@@ -1442,12 +1506,14 @@ function iconSun() {
   return out;
 }
 
+// Draw the seed icon for planting choices.
 function iconSeed() {
   return p('M14 3h4v4h4v6h4v6h-4v6h-6v2H8v-2H4V15h4V9h6z', P.ink) +
     p('M14 7h4v4h4v6h2v4h-4v4h-4v2H9v-2H7v-8h3V9h4z', P.soil) +
     r(12, 10, 4, 12, P.cream) + r(14, 8, 4, 4, P.leaf);
 }
 
+// Draw the settings icon.
 function iconGear() {
   let out = r(12, 0, 8, 6, P.ink) + r(12, 26, 8, 6, P.ink) + r(0, 12, 6, 8, P.ink) + r(26, 12, 6, 8, P.ink);
   out += p('M4 4h6v4H6v2H4zM22 4h6v6h-2V8h-4zM4 22h2v2h2v4H4zM22 24h4v4h-2v-2h-2z', P.ink);
@@ -1455,6 +1521,7 @@ function iconGear() {
   return out;
 }
 
+// Draw the speaker icon with an optional mute mark.
 function iconSound(muted = false) {
   let out = p('M2 12h8l8-6v20l-8-6H2z', P.ink) + p('M4 14h6l6-4v12l-6-4H4z', P.turquoise);
   if (!muted) {
@@ -1466,113 +1533,135 @@ function iconSound(muted = false) {
   return out;
 }
 
+// Draw the music icon for audio controls.
 function iconMusic() {
   return r(10, 3, 4, 19, P.ink) + r(22, 7, 4, 15, P.ink) + r(12, 3, 12, 4, P.ink) + r(20, 7, 8, 4, P.ink) +
     r(12, 5, 2, 15, P.turquoise) + r(24, 9, 2, 11, P.turquoise) + r(14, 5, 8, 2, P.turquoise) +
     r(4, 20, 12, 7, P.ink) + r(16, 16, 12, 7, P.ink) + r(6, 20, 8, 5, P.brick) + r(18, 16, 8, 5, P.brick);
 }
 
+// Draw the pause icon for playback controls.
 function iconPause() {
   return iconOutlinedRect(5, 3, 8, 26, P.cream, 3) + iconOutlinedRect(19, 3, 8, 26, P.cream, 3);
 }
 
+// Draw the play icon for playback controls.
 function iconPlay() {
   return p('M7 2h7v4h6v4h6v4h6v4h-6v4h-6v4h-6v4H7z', P.ink) +
     p('M11 8h4v4h6v4h6v-4h4v4h-6v4h-6v4h-6z', P.leaf);
 }
 
+// Draw the back-navigation icon.
 function iconBack() {
   return p('M14 2h6v6h10v6h4v4h-4v6H20v6h-6V22H2v-6h12z', P.ink) +
     p('M14 8h4v6h10v4H18v6h-4V18H6v-4h8z', P.cream);
 }
 
+// Draw the close icon for dismissing dialogs.
 function iconClose() {
   return p('M5 5l22 22M27 5L5 27', 'none', ` ${stroke(P.ink, 7)}`) +
     p('M7 7l18 18M25 7L7 25', 'none', ` ${stroke(P.brick, 3)}`);
 }
 
+// Draw the checkmark icon for confirmation.
 function iconCheck() {
   return p('M3 16l6 6L29 2', 'none', ` ${stroke(P.ink, 7)}`) +
     p('M5 17l5 5L27 5', 'none', ` ${stroke(P.lime, 3)}`);
 }
 
+// Draw the quest icon for mission tracking.
 function iconQuest() {
   return iconOutlinedRect(4, 4, 24, 26, P.cream, 4) + r(10, 2, 12, 6, P.ink) + r(12, 4, 8, 2, P.gold) +
     r(8, 11, 16, 2, P.bark) + r(8, 16, 12, 2, P.bark) +
     p('M8 23l4 4L24 15', 'none', ` ${stroke(P.leaf, 4)}`);
 }
 
+// Draw the folded-map icon for chapter navigation.
 function iconMap() {
   return p('M2 5h10v4h8V5h10v23H20v-4h-8v4H2z', P.ink) + p('M5 8h7v4h8V8h7v17h-7v-4h-8v4H5z', P.cream) +
     r(13, 8, 2, 18, P.bark) + r(19, 8, 2, 18, P.bark) +
     p('M7 21h4v-4h4', 'none', ` ${stroke(P.turquoise, 3)}`) + r(17, 13, 4, 4, P.leaf);
 }
 
+// Draw the memorial icon for remembrance features.
 function iconMemorial() {
   return iconOutlinedRect(8, 2, 16, 26, P.cream, 6) + r(11, 6, 10, 14, P.leaf) +
     p('M13 18h6v-4h-2v-2h-2v2h-2z', P.lime) + r(12, 22, 8, 2, P.gold) +
     r(5, 27, 22, 4, P.ink) + r(8, 27, 16, 2, P.bark);
 }
 
+// Draw the medal icon for achievements.
 function iconMedal() {
   return p('M8 0h6v12h4V0h6v16h-6v4h-4v-4H8z', P.ink) + p('M10 2h4v14h4V2h4v12h-4v4h-4v-4h-4z', P.brick) +
     iconOutlinedBlob(6, 14, 20, 18, P.gold) + p('M16 17h2v3h3v2h-3v3h-2v-3h-3v-2h3z', P.cream);
 }
 
+// Draw the lock icon for unavailable content.
 function iconLock() {
   return p('M10 1h12v4h4v11h-4v-7H10v7H6V5h4z', P.ink) + p('M12 4h8v3h3v6h-3V7h-8v6H9V7h3z', P.cream) +
     iconOutlinedRect(4, 12, 24, 18, P.turquoise, 4) + r(14, 17, 4, 7, P.cream) + r(12, 22, 8, 3, P.cream);
 }
 
+// Draw the information icon for help and details.
 function iconInfo() {
   return iconOutlinedBlob(2, 2, 28, 28, P.turquoise) + r(14, 7, 4, 5, P.cream) +
     r(14, 15, 4, 9, P.cream) + r(12, 25, 8, 3, P.cream);
 }
 
+// Draw the home icon for returning to the garden.
 function iconHome() {
   return p('M2 14h6V8h6V2h4v6h6v6h6v4H2z', P.ink) + p('M6 12h4V9h6V5h2v4h6v3h4v2H6z', P.brick) +
     iconOutlinedRect(4, 16, 24, 14, P.cream, 2) + r(13, 19, 7, 11, P.leaf) + r(18, 24, 2, 2, P.gold);
 }
 
+// Draw the chapter icon for story progression.
 function iconChapter() {
   return iconOutlinedRect(4, 2, 24, 28, P.cream, 4) + r(8, 2, 16, 6, P.leaf) +
     r(11, 12, 10, 12, P.gold) + r(15, 10, 2, 14, P.cream) + r(8, 25, 16, 2, P.bark);
 }
 
+// Draw the joystick icon for touch controls.
 function iconJoystick() {
   return iconOutlinedBlob(3, 9, 26, 22, P.turquoise) + r(14, 4, 4, 13, P.ink) + r(15, 5, 2, 10, P.cream) +
     iconOutlinedBlob(10, 2, 12, 12, P.forest) + r(12, 4, 8, 6, P.cream);
 }
 
+// Draw the action icon for contextual interactions.
 function iconAction() {
   return iconOutlinedBlob(2, 2, 28, 28, P.turquoise) + r(14, 7, 4, 18, P.cream) + r(7, 14, 18, 4, P.cream);
 }
 
+// Draw the menu icon for navigation.
 function iconMenu() {
   return r(3, 6, 26, 5, P.ink) + r(3, 14, 26, 5, P.ink) + r(3, 22, 26, 5, P.ink) +
     r(6, 7, 20, 3, P.cream) + r(6, 15, 20, 3, P.cream) + r(6, 23, 20, 3, P.cream);
 }
 
+// Draw the cloud icon for weather effects.
 function iconCloud() {
   return p('M7 14h5v-4h6V8h6v4h5v5h3v8H4v-6h3z', P.ink) +
     p('M8 16h5v-3h5v-3h5v3h5v4h3v5H7v-4h1z', P.sky) + r(9, 21, 15, 3, P.cream);
 }
 
+// Draw the trash icon for removing items.
 function iconTrash() {
   return r(9, 2, 14, 4, P.ink) + r(12, 6, 8, 3, P.turquoise) + p('M6 10h20l-2 20H8z', P.ink) +
     p('M9 13h14l-2 14H11z', P.forest) + r(14, 14, 4, 9, P.lime) + r(12, 28, 8, 2, P.ink);
 }
 
+// Draw the trophy icon for completion rewards.
 function iconTrophy() {
   return p('M8 2h16v12h-4v6h4v6H8v-6h4v-6H8z', P.ink) + p('M11 5h10v9h-3v5h-4v-5h-3z', P.gold) +
     p('M8 6H2v8h6M24 6h6v8h-6', 'none', ` ${stroke(P.ink, 5)}`) +
     p('M8 8H4v4h4M24 8h4v4h-4', 'none', ` ${stroke(P.cream, 2)}`) + r(12, 27, 8, 4, P.ink) + r(14, 27, 4, 2, P.gold);
 }
 
+// Reuse the user-supplied sprout source as a crisp SVG cell.
 function iconSprout() {
   return `<g transform="scale(0.5)">${pngPixelSvg(loadUserIcon('user_sprout_growth.png'))}</g>`;
 }
 
+// Draw the team icon for the about panel.
 function iconTeam() {
   return r(3, 6, 11, 12, P.ink) + r(5, 8, 7, 8, P.cream) + r(5, 6, 7, 4, P.brick) +
     r(18, 6, 11, 12, P.ink) + r(20, 8, 7, 8, P.cream) + r(20, 6, 7, 4, P.barkLight) +
@@ -1580,12 +1669,14 @@ function iconTeam() {
     r(16, 20, 15, 11, P.ink) + r(18, 21, 11, 8, P.leaf);
 }
 
+// Draw the recycling icon for compost and sustainability.
 function iconRecycle() {
   return p('M4 5h22v7h-4V9H9v3H5z', P.ink) + p('M7 8h16v2H10v3H7z', P.lime) +
     p('M22 13h6v11h-6v-4h2v-5h-4v4h-2v-6h4z', P.ink) + p('M24 16h4v6h-4v-2h2v-2h-4v2h-2v-2h4z', P.turquoise) +
     p('M8 22h16v7H4v-7h4z', P.ink) + p('M10 25h12v2H7v-2h3z', P.cream);
 }
 
+// Keep icon order stable because the game indexes atlas cells directly.
 const ICON_ROWS = [
   [iconLeaf(), iconHeart(), iconBook(), iconStar(), iconWater(), iconSoil(), iconSun(), iconSeed()],
   [iconGear(), iconSound(), iconMusic(), iconPause(), iconPlay(), iconBack(), iconClose(), iconCheck()],
@@ -1593,10 +1684,12 @@ const ICON_ROWS = [
   [iconJoystick(), iconAction(), iconMenu(), iconCloud(), iconRecycle(), iconTrash(), iconTrophy(), iconSprout()],
 ];
 
+// Return the requested icon or an empty cell for unused atlas slots.
 function iconArt(row, col) {
   return ICON_ROWS[row]?.[col] ?? '';
 }
 
+// Pack icons in a fixed 16-column atlas, leaving unused cells transparent.
 function buildIcons() {
   let body = '';
   for (let row = 0; row < 4; row += 1) {
@@ -1607,10 +1700,12 @@ function buildIcons() {
   return { name: 'icons.svg', width: 512, height: 128, usedCells: 64, source: svg(512, 128, body.trimEnd()) };
 }
 
+// Export the user-supplied growth icon as a standalone SVG.
 function buildSproutIcon() {
   return { name: 'sprout_icon.svg', width: 64, height: 64, usedCells: 0, source: svg(64, 64, pngPixelSvg(loadUserIcon('user_sprout_growth.png'))) };
 }
 
+// Draw the tree, heart, and roots motif used by the game logo.
 function logoArt() {
   let out = '';
   out += p('M56 70h8v6h10v6h12v6h8v8h10v8h-8v8h-8v8h-8v4h-16v-4h-8v-8h-8v-8h-8v-8h10v-8h8v-6h12v-6h10v-6h-8v-10h-16z', P.forest);
@@ -1628,10 +1723,12 @@ function logoArt() {
   return `<g transform="translate(192 -12) scale(2)">${out}</g>`;
 }
 
+// Export the centered logo on a transparent canvas.
 function buildLogo() {
   return { name: 'logo.svg', width: 640, height: 256, usedCells: 0, source: svg(640, 256, logoArt()) };
 }
 
+// Draw the shared sprout-and-roots tree used by Android icon layers.
 function androidTreeArt() {
   let out = r(146, 396, 220, 16, P.ink, ' opacity="0.24"');
   out += p('M238 208h36v176h-36z', P.ink);
@@ -1656,6 +1753,7 @@ function androidTreeArt() {
   return out;
 }
 
+// Draw the warm ember background for the adaptive Android icon.
 function androidBackgroundArt() {
   let out = `<defs><radialGradient id="android_ember" cx="50%" cy="36%" r="72%">` +
     `<stop offset="0" stop-color="${P.gold}"/><stop offset="0.46" stop-color="${P.brick}"/>` +
@@ -1670,10 +1768,12 @@ function androidBackgroundArt() {
   return out;
 }
 
+// Scale the tree layer into the Android adaptive-icon safe area.
 function androidForegroundArt() {
   return `<g transform="translate(56 42) scale(0.78)">${androidTreeArt()}</g>`;
 }
 
+// Flatten the tree layer to white for themed Android icons.
 function androidMonochromeArt() {
   let out = p('M238 208h36v176h-36z', P.white);
   out += blob(122, 146, 142, 96, P.white) + blob(248, 138, 142, 100, P.white);
@@ -1683,6 +1783,7 @@ function androidMonochromeArt() {
   return `<g transform="translate(56 42) scale(0.78)">${out}</g>`;
 }
 
+// Convert the user-supplied primary icon for the legacy launcher.
 function buildAndroidIcon() {
   return {
     name: 'android_icon.svg',
@@ -1694,6 +1795,7 @@ function buildAndroidIcon() {
   };
 }
 
+// Export the transparent adaptive-icon foreground layer.
 function buildAndroidForeground() {
   return {
     name: 'android_icon_foreground.svg',
@@ -1705,6 +1807,7 @@ function buildAndroidForeground() {
   };
 }
 
+// Export the opaque adaptive-icon background layer.
 function buildAndroidBackground() {
   return {
     name: 'android_icon_background.svg',
@@ -1716,6 +1819,7 @@ function buildAndroidBackground() {
   };
 }
 
+// Export the monochrome layer for themed launcher icons.
 function buildAndroidMonochrome() {
   return {
     name: 'android_icon_monochrome.svg',
@@ -1726,6 +1830,7 @@ function buildAndroidMonochrome() {
     source: svg(432, 432, androidMonochromeArt(), '0 0 512 512'),
   };
 }
+// Scatter seeded rain around the edges while keeping the center clear.
 function weatherArt() {
   const random = rng(301);
   let out = '';
@@ -1749,6 +1854,7 @@ function weatherArt() {
   return svg(512, 512, out.trimEnd());
 }
 
+// Draw a scalable broadleaf tree for chapter environments.
 function envTree(x, y, scale = 1, seed = 1) {
   let body = r(34, 44, 12, 66, P.ink) + r(37, 46, 6, 62, P.soil);
   body += branch(40, 64, 22, 40, P.soil, 7) + branch(40, 70, 59, 43, P.soil, 7);
@@ -1759,6 +1865,7 @@ function envTree(x, y, scale = 1, seed = 1) {
   return `<g transform="translate(${x} ${y}) scale(${scale})">${body}</g>`;
 }
 
+// Draw a scalable cypress for chapter environments.
 function envCypress(x, y, scale = 1) {
   let body = r(30, 42, 8, 72, P.soil) + r(32, 48, 4, 64, P.barkLight);
   for (let row = 0; row < 7; row += 1) {
@@ -1771,6 +1878,7 @@ function envCypress(x, y, scale = 1) {
   return `<g transform="translate(${x} ${y}) scale(${scale})">${body}</g>`;
 }
 
+// Draw a scalable bench for park and courtyard scenes.
 function envBench(x, y, scale = 1) {
   let body = r(0, 18, 66, 10, P.ink) + r(4, 14, 58, 10, P.bark);
   body += r(4, 0, 58, 8, P.ink) + r(7, 2, 52, 5, P.barkLight);
@@ -1779,12 +1887,14 @@ function envBench(x, y, scale = 1) {
   return `<g transform="translate(${x} ${y}) scale(${scale})">${body}</g>`;
 }
 
+// Layer dark, cream, and gold strokes into a crisp path.
 function envPath(points, width = 54) {
   const data = points.map((point, index) => `${index === 0 ? 'M' : 'L'}${point[0]} ${point[1]}`).join(' ');
   return p(data, 'none', ` ${stroke(P.ink, width + 6)}`) + p(data, 'none', ` ${stroke(P.cream, width)}`) +
     p(data, 'none', ` ${stroke(P.gold, 2)}`);
 }
 
+// Fill a planting bed with evenly spaced, slightly varied saplings.
 function envSaplingBed(x, y, width, seed = 1) {
   const random = rng(seed);
   let out = blob(x, y, width, 26, P.ink) + blob(x + 3, y + 3, width - 6, 20, P.soil);
@@ -1800,6 +1910,7 @@ function envSaplingBed(x, y, width, seed = 1) {
   return out;
 }
 
+// Draw a stepped garden arch for chapter scenes.
 function envArch(x, y, width = 92, height = 96) {
   const half = Math.floor(width / 2);
   let out = r(x, y + 28, width, height - 28, P.cream);
@@ -1810,11 +1921,13 @@ function envArch(x, y, width = 92, height = 96) {
   return out;
 }
 
+// Draw a framed window used by school and city buildings.
 function cityWindow(x, y, width = 34, height = 48) {
   return r(x - 3, y - 3, width + 6, height + 6, P.ink) + r(x, y, width, height, P.turquoise) +
     r(x + 4, y + 4, width - 8, height - 8, P.sky) + r(x + Math.floor(width / 2) - 1, y, 2, height, P.forest);
 }
 
+// Keep scene IDs and order aligned with the game's chapter content.
 const CHAPTER_SCENES = [
   { scene: 'garden_overgrown', description: 'Overgrown forgotten garden with a shed, pond and six reserved planting beds' },
   { scene: 'garden_saplings', description: 'Renewed garden with repaired fences, young trees and six reserved planting beds' },
@@ -1829,6 +1942,7 @@ const CHAPTER_SCENES = [
 const chapterSceneManifestRows = CHAPTER_SCENES.map(({ scene, description }) =>
   `| \`assets/art/scene_${scene}.svg\` | 1280 × 720 | ${description} |`).join('\n');
 
+// Draw a distant skyline or mountain horizon for chapter scenes.
 function sceneSky(city = false) {
   let out = r(0, 0, 1280, 200, P.sky);
   if (city) {
@@ -1846,6 +1960,7 @@ function sceneSky(city = false) {
   return out;
 }
 
+// Combine the sky and seeded ground texture into a scene base.
 function sceneGround(seed, base = P.earth, city = false) {
   let out = sceneSky(city) + r(0, 200, 1280, 520, base);
   const random = rng(seed);
@@ -1860,6 +1975,7 @@ function sceneGround(seed, base = P.earth, city = false) {
   return out;
 }
 
+// Reserve the fixed six-bed court area required by runtime planting.
 function scenePlantingCourt() {
   let out = roundedRect(158, 178, 364, 444, 26, P.ink);
   out += roundedRect(166, 186, 348, 428, 20, P.gold);
@@ -1876,6 +1992,7 @@ function scenePlantingCourt() {
   return `<g data-planting-court="158,178,364,444">${out}</g>`;
 }
 
+// Draw a fence whose material reflects repaired or overgrown state.
 function sceneFence(x, y, width, repaired = true) {
   let out = r(x, y, width, 8, P.ink) + r(x + 4, y + 2, width - 8, 4, repaired ? P.barkLight : P.bark);
   for (let post = x; post <= x + width; post += 48) {
@@ -1884,6 +2001,7 @@ function sceneFence(x, y, width, repaired = true) {
   return out;
 }
 
+// Draw the shared pond used across multiple chapters.
 function scenePond() {
   let out = roundedRect(962, 457, 186, 166, 30, P.ink);
   out += roundedRect(970, 465, 170, 150, 24, P.water);
@@ -1893,6 +2011,7 @@ function scenePond() {
   return out;
 }
 
+// Draw the garden shed shared by early chapters.
 function sceneShed() {
   let out = r(944, 164, 286, 180, P.ink) + r(952, 172, 270, 164, P.bark);
   out += p('M936 172H1238L1214 136H960Z', P.soil);
@@ -1905,6 +2024,7 @@ function sceneShed() {
   return out;
 }
 
+// Draw the school facade for the courtyard chapter.
 function sceneSchoolBuilding() {
   let out = r(0, 0, 1280, 200, P.brick) + r(0, 0, 1280, 12, P.gold);
   out += r(0, 188, 1280, 12, P.ink) + r(0, 184, 1280, 6, P.cream);
@@ -1918,6 +2038,7 @@ function sceneSchoolBuilding() {
   return out;
 }
 
+// Frame city scenes with side buildings and a central canal.
 function sceneCityBuildings() {
   let out = sceneSky(true);
   out += r(0, 200, 118, 520, P.brick) + r(1162, 200, 118, 520, P.brick);
@@ -1929,6 +2050,7 @@ function sceneCityBuildings() {
   return out;
 }
 
+// Draw the central memorial for the remembrance chapter.
 function sceneMonument() {
   let out = roundedRect(579, 206, 126, 180, 18, P.ink);
   out += roundedRect(587, 214, 110, 164, 14, P.cream);
@@ -1938,6 +2060,7 @@ function sceneMonument() {
   return out;
 }
 
+// Draw celebratory bunting for the city stewardship chapter.
 function sceneBunting() {
   let out = p('M540 150H1180', 'none', ` ${stroke(P.ink, 4)}`);
   const colors = [P.rose, P.gold, P.turquoise, P.lime];
@@ -1948,6 +2071,7 @@ function sceneBunting() {
   return out;
 }
 
+// Scatter seeded flowers inside a bordered garden bed.
 function sceneFlowerBed(x, y, width, seed) {
   let out = blob(x, y, width, 26, P.ink) + blob(x + 4, y + 4, width - 8, 18, P.soil);
   const random = rng(seed);
@@ -1960,6 +2084,7 @@ function sceneFlowerBed(x, y, width, seed) {
   return out;
 }
 
+// Compose each chapter background while preserving the planting court.
 function chapterSceneArt(scene) {
   let out = '';
   if (scene === 'garden_overgrown') {
@@ -2036,6 +2161,7 @@ function chapterSceneArt(scene) {
   return `<g data-scene="${scene}">${out}</g>`;
 }
 
+// Export all eight chapter scenes in the manifest declared order.
 function buildEnvironmentScenes() {
   return CHAPTER_SCENES.map(({ scene }) => ({
     name: `scene_${scene}.svg`, width: 1280, height: 720, usedCells: 0,
@@ -2043,6 +2169,7 @@ function buildEnvironmentScenes() {
   }));
 }
 
+// Draw a scalable leaf ornament with optional horizontal mirroring.
 function buttonLeaf(x, y, size, fill, flip = false) {
   const scale = size / 20;
   const outline = p('M0 6H4V2H10V0H16V4H20V8H16V12H10V14H4V12H0Z', P.ink);
@@ -2051,6 +2178,7 @@ function buttonLeaf(x, y, size, fill, flip = false) {
   return `<g transform="translate(${x} ${y}) scale(${flip ? -scale : scale} ${scale})">${outline}${inner}</g>`;
 }
 
+// Build the wooden title banner with sprout medallion and trim.
 function titlePanelArt() {
   let out = `<defs><linearGradient id="title_wood" x1="0" y1="0" x2="0" y2="1">` +
     `<stop offset="0" stop-color="${P.barkLight}"/><stop offset="0.5" stop-color="${P.bark}"/>` +
@@ -2086,6 +2214,7 @@ function titlePanelArt() {
   return svg(840, 184, out.trimEnd());
 }
 
+// Render one button variant with state-specific depth and colors.
 function titleButtonArt(width, height, kind, state) {
   const green = kind === 'green';
   const dark = kind === 'dark';
@@ -2161,6 +2290,7 @@ function titleButtonArt(width, height, kind, state) {
   return svg(width, height, out);
 }
 
+// Export every configured button in normal, hover, and pressed states.
 function buildTitleButtons() {
   const specs = [
     { key: 'start', kind: 'green', width: 360, height: 84 },
@@ -2190,6 +2320,7 @@ function buildTitleButtons() {
   return assets;
 }
 
+// Build the wooden resource-bar frame used by the HUD.
 function hudPanelArt() {
   let out = `<defs><linearGradient id="hud_wood" x1="0" y1="0" x2="0" y2="1">` +
     `<stop offset="0" stop-color="${P.barkLight}"/><stop offset="0.5" stop-color="${P.bark}"/>` +
@@ -2204,6 +2335,7 @@ function hudPanelArt() {
   return svg(850, 64, out.trimEnd());
 }
 
+// Build the compact resource chip used by HUD counters.
 function hudChipArt() {
   let out = `<defs><linearGradient id="hud_chip" x1="0" y1="0" x2="0" y2="1">` +
     `<stop offset="0" stop-color="${P.leaf}"/><stop offset="1" stop-color="${P.forest}"/></linearGradient></defs>`;
@@ -2215,6 +2347,7 @@ function hudChipArt() {
   return svg(92, 44, out.trimEnd());
 }
 
+// Build the team panel with paper, leaves, blossoms, and a sprout emblem.
 function aboutPanelArt() {
   let out = `<defs><linearGradient id="about_wood" x1="0" y1="0" x2="0" y2="1">` +
     `<stop offset="0" stop-color="${P.barkLight}"/><stop offset="0.5" stop-color="${P.bark}"/>` +
@@ -2249,6 +2382,7 @@ function aboutPanelArt() {
   return svg(900, 650, out.trimEnd());
 }
 
+// Document generated assets, source provenance, and regeneration guarantees.
 const manifest = `# Roots of Sacrifice Art Asset Manifest
 
 The game artwork is original to Roots of Sacrifice (ریشه‌های ایثار). Most SVG assets are procedurally generated; the sprout icon sources under \`assets/art/source\` and \`assets/art/cinematic_garden.png\` were created and supplied by the project owner and are used with authorization. No other third-party artwork is incorporated. SVG geometry is deterministic; no external fonts, images, scripts, or network resources are required at runtime.
@@ -2310,6 +2444,7 @@ node tools/generate_art.mjs
 The command rewrites only the generated SVG files and this manifest, then validates XML structure, dimensions, palette usage, cell coverage, chapter-scene count, reserved planting-court metadata, and file existence. In Godot, keep SVG import filtering set to nearest so the chunky pixels remain crisp when scaled.
 `;
 
+// Validate SVG structure, dimensions, palette, cells, and scene invariants.
 function validateSvg(asset) {
   const { name, width, height, usedCells, source, viewBox = `0 0 ${width} ${height}` } = asset;
   const errors = [];
@@ -2367,11 +2502,13 @@ function validateSvg(asset) {
   if (errors.length) throw new Error(`${name}: ${errors.join('; ')}`);
 }
 
+// Hash the protected title image so generation can prove it stayed unchanged.
 function titleChecksum() {
   const titlePath = path.join(ART, 'title_art.png');
   return fs.existsSync(titlePath) ? crypto.createHash('sha256').update(fs.readFileSync(titlePath)).digest('hex') : null;
 }
 
+// Generate, validate, write, and revalidate every asset while preserving source art.
 function main() {
   fs.mkdirSync(ART, { recursive: true });
   const beforeTitle = titleChecksum();
@@ -2398,6 +2535,7 @@ function main() {
     { name: 'about_panel.svg', width: 900, height: 650, usedCells: 0, source: aboutPanelArt() },
   ];
 
+  // Validate in memory before touching any existing output files.
   for (const asset of assets) validateSvg(asset);
   const sceneAssets = assets.filter((asset) => asset.name.startsWith('scene_'));
   if (sceneAssets.length !== 8 || new Set(sceneAssets.map((asset) => asset.name)).size !== 8) {
@@ -2414,6 +2552,7 @@ function main() {
   fs.writeFileSync(path.join(ART, 'ASSET_MANIFEST.md'), manifest, 'utf8');
 
   for (const asset of assets) {
+    // Re-read written files so serialization or write failures cannot pass silently.
     const written = fs.readFileSync(path.join(ART, asset.name), 'utf8');
     validateSvg({ ...asset, source: written });
   }
@@ -2424,6 +2563,7 @@ function main() {
   console.log(`Validated ${assets.length} SVG files and manifest; title_art.png preserved.`);
 }
 
+// Run generation immediately and report failures through the process exit code.
 try {
   main();
 } catch (error) {

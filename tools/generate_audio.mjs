@@ -462,6 +462,7 @@ function makeGrow() {
   return finish(buffer, { peak: 0.62, fadeIn: 0.006, fadeOut: 0.06 });
 }
 
+// Synthesize a short watering pour from filtered flow noise and scattered droplets.
 function makeWater() {
   const duration = 1.05;
   const buffer = silence(duration);
@@ -487,6 +488,7 @@ function makeWater() {
   return finish(buffer, { peak: 0.56, fadeIn: 0.006, fadeOut: 0.06 });
 }
 
+// Reward harvesting with an ascending five-note figure and a warm final chord.
 function makeHarvest() {
   const buffer = silence(1.25);
   const notes = [[0, 0, 0.68], [2, 0.14, 0.66], [3, 0.29, 0.62], [4, 0.45, 0.58], [5, 0.62, 0.52]];
@@ -497,6 +499,7 @@ function makeHarvest() {
   return finish(buffer, { peak: 0.70, fadeIn: 0.004, fadeOut: 0.07 });
 }
 
+// Confirm a successful save with two quiet overlapping chimes and a soft root tone.
 function makeSave() {
   const buffer = silence(0.58);
   addChime(buffer, 0, 0.34, scaleFrequency(2, 1), 0.11, 0.55);
@@ -505,6 +508,7 @@ function makeSave() {
   return finish(buffer, { peak: 0.58, fadeIn: 0.004, fadeOut: 0.05 });
 }
 
+// Create a restrained wooden UI click from damped modes and a tiny noise transient.
 function makeClick() {
   const duration = 0.105;
   const buffer = silence(duration);
@@ -522,6 +526,7 @@ function makeClick() {
   return finish(buffer, { peak: 0.50, fadeIn: 0.001, fadeOut: 0.015 });
 }
 
+// Encourage a correct answer with a gentle rising triad rather than a harsh success buzzer.
 function makeQuizCorrect() {
   const buffer = silence(0.82);
   addChime(buffer, 0, 0.6, scaleFrequency(0, 1), 0.14, 0.75);
@@ -531,6 +536,7 @@ function makeQuizCorrect() {
   return finish(buffer, { peak: 0.66, fadeIn: 0.005, fadeOut: 0.06 });
 }
 
+// Signal an incorrect answer softly with two descending plucks and no penalty-like sting.
 function makeQuizWrong() {
   const buffer = silence(0.5);
   addPluck(buffer, 0, 0.32, scaleFrequency(0, -1), 0.14, { attack: 0.022, release: 0.16, decay: 3.4 });
@@ -538,6 +544,7 @@ function makeQuizWrong() {
   return finish(buffer, { peak: 0.46, fadeIn: 0.008, fadeOut: 0.055 });
 }
 
+// Mark a chapter or achievement unlock with a compact six-note rising flourish.
 function makeUnlock() {
   const buffer = silence(1.42);
   const notes = [[0, 0], [1, 0.14], [2, 0.29], [3, 0.45], [4, 0.62], [5, 0.81]];
@@ -549,6 +556,7 @@ function makeUnlock() {
   return finish(buffer, { peak: 0.72, fadeIn: 0.005, fadeOut: 0.08 });
 }
 
+// Place four original two-syllable bird calls across a quiet outdoor ambience clip.
 function makeBirds() {
   const duration = 6.4;
   const buffer = silence(duration);
@@ -561,6 +569,7 @@ function makeBirds() {
   return finish(buffer, { peak: 0.48, fadeIn: 0.015, fadeOut: 0.04 });
 }
 
+// Build a seamless wind bed from periodic colored noise and a slow gust envelope.
 function makeWind() {
   const duration = 8;
   const buffer = periodicNoise(duration, 6901, [
@@ -576,6 +585,7 @@ function makeWind() {
   return finish(buffer, { peak: 0.40, fadeIn: 0.1, fadeOut: 0.1 });
 }
 
+// Create seamless light rain from periodic noise, slow movement, and sparse droplets.
 function makeRainLoop() {
   const duration = 8;
   const buffer = periodicNoise(duration, 6102, [
@@ -590,6 +600,7 @@ function makeRainLoop() {
   return finish(buffer, { peak: 0.46, fadeIn: 0.09, fadeOut: 0.09 });
 }
 
+// Create a short seamless stream bed with gentle flow modulation and nine bubbles.
 function makeWaterLoop() {
   const duration = 4;
   const buffer = periodicNoise(duration, 6301, [
@@ -604,6 +615,7 @@ function makeWaterLoop() {
   return finish(buffer, { peak: 0.39, fadeIn: 0.08, fadeOut: 0.08 });
 }
 
+// Synthesize a soft soil footstep from a falling body sweep and quiet filtered grit.
 function makeSteps() {
   const duration = 0.22;
   const buffer = silence(duration);
@@ -704,6 +716,7 @@ const CLIPS = [
   },
 ];
 
+// Encode generated samples as canonical mono 16-bit PCM WAV with a 44-byte header.
 function writeWav(filePath, samples) {
   const dataBytes = samples.length * 2;
   const wav = Buffer.alloc(HEADER_BYTES + dataBytes);
@@ -727,6 +740,7 @@ function writeWav(filePath, samples) {
   fs.writeFileSync(filePath, wav);
 }
 
+// Re-read each WAV to verify format, duration, headroom, silent endpoints, and loop seams.
 function validateWav(filePath, clip) {
   const wav = fs.readFileSync(filePath);
   const expectedFrames = frames(clip.duration);
@@ -774,10 +788,12 @@ function validateWav(filePath, clip) {
   };
 }
 
+// Format measured amplitude consistently in the generated audio manifest.
 function formatDb(value) {
   return `${value.toFixed(1)} dBFS`;
 }
 
+// Record provenance, synthesis parameters, measurements, and preserved user-supplied music.
 function writeManifest(results) {
   const totalBytes = results.reduce((sum, result) => sum + result.bytes, 0);
   const rows = CLIPS.map((clip, index) => {
@@ -843,6 +859,7 @@ Generated WAV payload: **${(totalBytes / (1024 * 1024)).toFixed(2)} MiB** across
   return totalBytes;
 }
 
+// Generate and validate every original sound effect while leaving supplied MP3 files untouched.
 function main() {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   const results = [];

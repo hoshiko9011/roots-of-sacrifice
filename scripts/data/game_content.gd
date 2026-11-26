@@ -1,6 +1,7 @@
 extends RefCounted
 class_name GameContent
 
+# Define the offline game's chapters, missions, plants, dialogue, tutorials, and sourced stories.
 # Ordered chapter definitions drive locations, dialogue, missions, rewards, and progression.
 const CHAPTERS: Array[Dictionary] = [
 	{

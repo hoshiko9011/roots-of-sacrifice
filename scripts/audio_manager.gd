@@ -1,5 +1,6 @@
 extends Node
 
+# Coordinate layered music, ambience, effects, focus loss, and user volume settings.
 # Two players per continuous layer allow crossfades without restarting the active stream.
 var _music_players: Array[AudioStreamPlayer] = []
 var _ambience_players: Array[AudioStreamPlayer] = []

@@ -1,5 +1,6 @@
 extends Control
 
+# Provide a single-finger virtual joystick that safely resets on release, pause, and focus loss.
 signal direction_changed(direction: Vector2)
 
 # Only one touch controls the stick, and its released state always maps to zero movement.

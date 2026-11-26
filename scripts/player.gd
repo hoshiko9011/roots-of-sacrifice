@@ -1,6 +1,7 @@
 class_name PlayerController
 extends CharacterBody2D
 
+# Move the player with touch or keyboard input while respecting world collision and animation state.
 const SPEED: float = 180.0
 const FOOT_RADIUS: float = 9.0
 const NPC_RADIUS: float = 18.0

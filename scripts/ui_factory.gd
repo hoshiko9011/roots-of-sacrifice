@@ -1,6 +1,7 @@
 class_name UIFactory
 extends RefCounted
 
+# Build the shared Persian RTL visual language for labels, panels, buttons, images, and bars.
 const CREAM := Color("f6e6bf")
 const INK := Color("2b4030")
 const GREEN := Color("41683d")

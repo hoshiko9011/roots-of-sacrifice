@@ -1,5 +1,6 @@
 extends Node
 
+# Own persistent progression, time, settings, saves, missions, and story-completion reconciliation.
 signal changed
 signal notification(message: String)
 signal chapter_finished(chapter_id: int)
@@ -930,9 +931,11 @@ func _valid_save(state: Variant) -> bool:
 			return false
 	return true
 
+# Report whether either the primary save or its backup can be loaded.
 func has_valid_save() -> bool:
 	return not _read_save(save_path).is_empty() or not _read_save(backup_path).is_empty()
 
+# Restore validated progress and repair story credit before returning to gameplay.
 func load_game(path_override: String = "") -> bool:
 	var target := save_path if path_override.is_empty() else path_override
 	var saved := _read_save(target)
@@ -953,6 +956,7 @@ func load_game(path_override: String = "") -> bool:
 		save_game()
 	return true
 
+# Load only recognized settings and clamp numeric values to safe runtime ranges.
 func load_settings() -> void:
 	var config := ConfigFile.new()
 	if config.load(settings_path) != OK:
@@ -966,6 +970,7 @@ func load_settings() -> void:
 		elif key in ["touch", "reduced_motion"] and value is bool:
 			settings[key] = value
 
+# Validate and persist one supported setting without accepting unknown keys.
 func set_setting(key: String, value: Variant) -> bool:
 	if not DEFAULT_SETTINGS.has(key):
 		return false
@@ -984,10 +989,12 @@ func set_setting(key: String, value: Variant) -> bool:
 	save_settings()
 	return true
 
+# Restore the default accessibility, audio, touch, and day-length preferences.
 func reset_settings() -> void:
 	settings = DEFAULT_SETTINGS.duplicate()
 	save_settings()
 
+# Persist settings separately from story progress so preferences survive a new game.
 func save_settings() -> void:
 	var config := ConfigFile.new()
 	for key in DEFAULT_SETTINGS:
@@ -996,6 +1003,7 @@ func save_settings() -> void:
 	if error != OK:
 		push_error("SETTINGS_SAVE_FAILED: " + error_string(error))
 
+# Autosave on pause and window close without creating an empty first-run save.
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
 		if not data.is_empty():
