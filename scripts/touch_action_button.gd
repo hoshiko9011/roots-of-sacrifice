@@ -40,17 +40,16 @@ func _gui_input(event: InputEvent) -> void:
 			_cancel_input()
 		accept_event()
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-			if event.pressed and _touch_index == -1 and Rect2(Vector2.ZERO, size).has_point(event.position):
-				_touch_index = -2
-				_press()
-				accept_event()
-			elif not event.pressed and _touch_index == -2:
-				if Rect2(Vector2.ZERO, size).has_point(event.position):
-					_release()
-				else:
-					_cancel_input()
-				accept_event()
-
+		if event.pressed and _touch_index == -1 and Rect2(Vector2.ZERO, size).has_point(event.position):
+			_touch_index = -2
+			_press()
+			accept_event()
+		elif not event.pressed and _touch_index == -2:
+			if Rect2(Vector2.ZERO, size).has_point(event.position):
+				_release()
+			else:
+				_cancel_input()
+			accept_event()
 
 # Applies normal Button press feedback without relying on touch-to-mouse emulation.
 func _press() -> void:

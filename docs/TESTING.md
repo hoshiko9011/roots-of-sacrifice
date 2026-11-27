@@ -25,7 +25,7 @@
 
 ```text
 Godot Engine v4.7.2.stable.official.ed1daf0bf
-ROOTS_TESTS: 357 checks, 0 failures
+ROOTS_TESTS: 359 checks, 0 failures
 ```
 
 ساختار تست فقط `tests/run_tests.gd` و `tests/test_runner.tscn` است. فایل‌های ذخیرهٔ این suite، `user://roots-test-save.json` و `user://roots-test-backup.json` و نیز فایل‌های UI smoke با پیشوند `user://roots-ui-test-` هستند و در پایان پاک می‌شوند؛ مسیر ذخیرهٔ واقعی بازی `user://garden.save` است. پیش از خروج نیز `AudioManager.shutdown()`، دو فریم انتظار و سپس ۰٫۱۵ ثانیه فرصت آزادسازی thread صدا اجرا می‌شود.

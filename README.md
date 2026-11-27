@@ -71,7 +71,7 @@
 | برندهای دیگر | تست فیزیکی نشده | شامل Realme، Oppo، Vivo، Honor، Nokia و سایر برندها |
 | armv7 / `armeabi-v7a` | بسته‌بندی شده، تست فیزیکی نشده | کتابخانهٔ ARMv7 در APK وجود دارد اما روی دستگاه armv7 اجرا نشده است |
 | GPU Adreno و PowerVR | تست فیزیکی نشده | فقط Mali-G720 روی Poco X7 Pro شاهد فیزیکی دارد |
-| Windows Desktop | تست خودکار و رندر تصویری شده | اجرای headless، ۳۵۷ بررسی و رندر صحنه‌ها؛ بازی‌کردن دستی کامل دسکتاپ انجام نشده است |
+| Windows Desktop | تست خودکار و رندر تصویری شده | اجرای headless، ۳۵۹ بررسی و رندر صحنه‌ها؛ بازی‌کردن دستی کامل دسکتاپ انجام نشده است |
 
 ### آزمون‌های فیزیکی انجام‌شده روی Poco X7 Pro
 
@@ -326,7 +326,7 @@ godot --headless --path . --scene res://tests/test_runner.tscn
 نتیجهٔ تأییدشده در ۲۰۲۶-۱۱-۲۶:
 
 ```text
-ROOTS_TESTS: 357 checks, 0 failures
+ROOTS_TESTS: 359 checks, 0 failures
 ```
 
 ### تولید مجدد دارایی‌ها

@@ -1399,6 +1399,45 @@ func _test_ui_audit_regressions(main) -> void:
 	press.pressed = false
 	press.position = joystick_transform * Vector2(75, 75)
 	joystick._input(press)
+	# Sliding off Action/Water or releasing the emulated mouse outside must cancel, not fire.
+	var cancel_buttons: Array[TouchActionButton] = [main._action_button, main._water_action_button]
+	var touch_cancel_ok: bool = true
+	var mouse_cancel_ok: bool = true
+	for button_index in range(cancel_buttons.size()):
+		var cancel_button: TouchActionButton = cancel_buttons[button_index]
+		var cancel_count: Array[int] = [0]
+		var cancel_callback := func() -> void:
+			cancel_count[0] += 1
+		cancel_button.pressed.connect(cancel_callback)
+		var touch_press := InputEventScreenTouch.new()
+		touch_press.index = 10 + button_index * 2
+		touch_press.pressed = true
+		touch_press.position = Vector2(60, 44)
+		cancel_button._gui_input(touch_press)
+		var touch_drag := InputEventScreenDrag.new()
+		touch_drag.index = touch_press.index
+		touch_drag.position = Vector2(500, 500)
+		cancel_button._gui_input(touch_drag)
+		var touch_release := InputEventScreenTouch.new()
+		touch_release.index = touch_press.index
+		touch_release.pressed = false
+		touch_release.position = Vector2(500, 500)
+		cancel_button._gui_input(touch_release)
+		touch_cancel_ok = touch_cancel_ok and cancel_count[0] == 0 and cancel_button._touch_index == -1
+		var mouse_press := InputEventMouseButton.new()
+		mouse_press.button_index = MOUSE_BUTTON_LEFT
+		mouse_press.pressed = true
+		mouse_press.position = Vector2(60, 44)
+		cancel_button._gui_input(mouse_press)
+		var mouse_release := InputEventMouseButton.new()
+		mouse_release.button_index = MOUSE_BUTTON_LEFT
+		mouse_release.pressed = false
+		mouse_release.position = Vector2(500, 500)
+		cancel_button._gui_input(mouse_release)
+		mouse_cancel_ok = mouse_cancel_ok and cancel_count[0] == 0 and cancel_button._touch_index == -1
+		cancel_button.pressed.disconnect(cancel_callback)
+	_check(touch_cancel_ok, "sliding a finger off Action or Water cancels without firing")
+	_check(mouse_cancel_ok, "releasing the emulated mouse outside Action or Water cancels without firing")
 	get_tree().root.size = old_window_size
 	await get_tree().process_frame
 	GameState.settings.reduced_motion = old_reduced_motion

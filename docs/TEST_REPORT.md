@@ -57,7 +57,7 @@
 خروجی نهایی:
 
 ```text
-ROOTS_TESTS: 357 checks, 0 failures
+ROOTS_TESTS: 359 checks, 0 failures
 ```
 
 پوشش اصلی شامل موارد زیر است:
