@@ -13,6 +13,8 @@ const BACKUP_PATH := "user://garden.backup"
 const SETTINGS_PATH := "user://settings.cfg"
 const SAVE_VERSION := 3
 const DAY_SECONDS := 240.0
+const CLOCK_SAVE_INTERVAL := 60.0
+const SAVE_ERROR_NOTIFICATION_INTERVAL_MS := 30000
 const DEFAULT_SETTINGS := {"music": 0.45, "sound": 0.65, "touch": true, "reduced_motion": false, "day_length": 240.0}
 const DAY_START_HOUR := 7.0
 const NIGHT_START_HOUR := 19.0
@@ -27,6 +29,10 @@ var save_error := ""
 var save_path := SAVE_PATH
 var backup_path := BACKUP_PATH
 var _dirty := false
+# Clock-only persistence is throttled independently from gameplay mutations.
+var _clock_dirty := false
+var _clock_save_elapsed := 0.0
+var _last_save_error_notification_ms := -SAVE_ERROR_NOTIFICATION_INTERVAL_MS
 # Clock pausing is independent of SceneTree.paused so settings can stop time without freezing UI.
 var time_paused := false
 var _time_signal_timer := 0.0
@@ -52,7 +58,9 @@ func _process(delta: float) -> void:
 	data.time_of_day = next_time
 	if wrapped:
 		advance_day()
-	_dirty = true
+	# Clock ticks are saved less often than gameplay mutations.
+	_clock_dirty = true
+	_clock_save_elapsed += delta
 	_time_signal_timer += delta
 	# UI updates are throttled except on day rollover, which needs an immediate refresh.
 	if wrapped or _time_signal_timer >= 0.1:
@@ -263,7 +271,9 @@ func clear_dead_plot(index: int) -> bool:
 	plot.watered_day = -1
 	plot.planted_day = 0
 	plot.compost_day = -1
-	plot.name = ""
+	# Keep the plaque name while its matching memorial record still exists.
+	if not has_memorial(String(data.zone), index):
+		plot.name = ""
 	plot.dead = false
 	plot.neglect_days = 0
 	_touch()
@@ -296,6 +306,10 @@ func start_compost_batch() -> bool:
 		return false
 	if bool(station.batch_active):
 		notification.emit("یک دسته کمپوست در حال آماده‌سازی است.")
+		return false
+	# Reject a new batch when its two-unit output would exceed station capacity.
+	if int(station.get("ready_compost", 0)) > 4:
+		notification.emit("ظرف کمپوست ایستگاه تقریباً پر است؛ نخست کمپوست آماده را دریافت کن.")
 		return false
 	if int(data.resources.compost) < 1:
 		notification.emit("برای آغاز یک دسته به ۱ واحد کمپوست نیاز داری.")
@@ -676,40 +690,64 @@ func unlock_achievement(id: String) -> void:
 		data.achievements.append(id)
 		achievement_unlocked.emit(id)
 
-# Autosaves only when gameplay state has changed and a game is active.
+# Autosaves gameplay changes promptly and clock-only changes once per minute.
 func _autosave() -> void:
-	if _dirty and not data.is_empty():
+	if not data.is_empty() and (_dirty or (_clock_dirty and _clock_save_elapsed >= CLOCK_SAVE_INTERVAL)):
 		save_game()
+
+# Stores every save error and throttles repeated user-facing failure notices.
+func _fail_save(message: String) -> bool:
+	save_error = message
+	var now := Time.get_ticks_msec()
+	if now - _last_save_error_notification_ms >= SAVE_ERROR_NOTIFICATION_INTERVAL_MS:
+		_last_save_error_notification_ms = now
+		notification.emit(message)
+	return false
 
 # Writes a checksummed save through a temporary file and protects the previous save with a backup.
 func save_game(path_override: String = "") -> bool:
 	if data.is_empty():
-		return false
+		return _fail_save("بازی فعالی برای ذخیره‌سازی وجود ندارد.")
 	var target := save_path if path_override.is_empty() else path_override
 	var payload := JSON.stringify(data)
 	var envelope := JSON.stringify({"payload": payload, "checksum": payload.sha256_text()})
 	var temp := target + ".tmp"
 	var file := FileAccess.open(temp, FileAccess.WRITE)
 	if file == null:
-		save_error = "ذخیرهسازی انجام نشد؛ فضای خالی دستگاه را بررسی کن."
-		return false
+		return _fail_save("ذخیرهسازی انجام نشد؛ فضای خالی دستگاه را بررسی کن.")
 	file.store_string(envelope)
-	file.flush()
+	var write_error := file.get_error()
+	if write_error == OK:
+		file.flush()
+		write_error = file.get_error()
 	file.close()
-	# Back up only the normal save path; a failed backup leaves the current save untouched.
+	# A failed write or flush must never reach backup rotation or rename.
+	if write_error != OK:
+		DirAccess.remove_absolute(temp)
+		return _fail_save("ذخیرهسازی انجام نشد؛ فضای خالی دستگاه را بررسی کن.")
+	# Rotate a validated backup atomically before replacing the primary save.
 	if path_override.is_empty() and FileAccess.file_exists(target):
 		var old := _read_save(target)
 		if not old.is_empty():
-			var backup_err := DirAccess.copy_absolute(target, backup_path)
+			var backup_temp := backup_path + ".tmp"
+			var backup_err := DirAccess.copy_absolute(target, backup_temp)
 			if backup_err != OK:
-				save_error = "ساخت نسخهٔ پشتیبان انجام نشد؛ ذخیرهٔ اصلی جایگزین نشد."
-				return false
+				DirAccess.remove_absolute(backup_temp)
+				return _fail_save("ساخت نسخهٔ پشتیبان انجام نشد؛ ذخیرهٔ اصلی جایگزین نشد.")
+			if _read_save(backup_temp).is_empty():
+				DirAccess.remove_absolute(backup_temp)
+				return _fail_save("ساخت نسخهٔ پشتیبان انجام نشد؛ ذخیرهٔ اصلی جایگزین نشد.")
+			backup_err = DirAccess.rename_absolute(backup_temp, backup_path)
+			if backup_err != OK:
+				DirAccess.remove_absolute(backup_temp)
+				return _fail_save("ساخت نسخهٔ پشتیبان انجام نشد؛ ذخیرهٔ اصلی جایگزین نشد.")
 	# Atomic replacement prevents a partially written envelope from becoming the live save.
 	var err := DirAccess.rename_absolute(temp, target)
 	if err != OK:
-		save_error = "جابهجایی فایل ذخیره انجام نشد."
-		return false
+		return _fail_save("جابهجایی فایل ذخیره انجام نشد.")
 	_dirty = false
+	_clock_dirty = false
+	_clock_save_elapsed = 0.0
 	if path_override.is_empty():
 		save_available = true
 	save_error = ""
@@ -796,14 +834,14 @@ func _migrate_state(state: Variant) -> Variant:
 		state.version = SAVE_VERSION
 		for zone in LOCATIONS:
 			for plot in state.zones[zone].plots:
-				if String(plot.species) == "rose":
+				if String(plot.get("species", "")) == "rose":
 					plot.species = "arghavan"
-				elif String(plot.species) == "lavender":
+				elif String(plot.get("species", "")) == "lavender":
 					plot.species = "olive"
 		for entry in state.memorials:
-			if String(entry.species) == "rose":
+			if String(entry.get("species", "")) == "rose":
 				entry.species = "arghavan"
-			elif String(entry.species) == "lavender":
+			elif String(entry.get("species", "")) == "lavender":
 				entry.species = "olive"
 		# Established saves should not be shown the first-run tutorial again.
 		if int(state.chapter) > 1 or int(state.stats.planted) > 0:

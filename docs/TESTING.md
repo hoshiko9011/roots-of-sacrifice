@@ -25,7 +25,7 @@
 
 ```text
 Godot Engine v4.7.2.stable.official.ed1daf0bf
-ROOTS_TESTS: 325 checks, 0 failures
+ROOTS_TESTS: 357 checks, 0 failures
 ```
 
 ساختار تست فقط `tests/run_tests.gd` و `tests/test_runner.tscn` است. فایل‌های ذخیرهٔ این suite، `user://roots-test-save.json` و `user://roots-test-backup.json` و نیز فایل‌های UI smoke با پیشوند `user://roots-ui-test-` هستند و در پایان پاک می‌شوند؛ مسیر ذخیرهٔ واقعی بازی `user://garden.save` است. پیش از خروج نیز `AudioManager.shutdown()`، دو فریم انتظار و سپس ۰٫۱۵ ثانیه فرصت آزادسازی thread صدا اجرا می‌شود.
@@ -351,7 +351,7 @@ ROOTS_TESTS: 325 checks, 0 failures
 | `PERF06` | ذخیرهٔ پایان روز/فصل | بدون hitch طولانی؛ اندازهٔ معمولی زیر ۲۰۰ کیلوبایت | `PENDING` |
 | `PERF07` | جلسهٔ ۶۰ دقیقه یا مسیر کامل | بدون نشت، گره یتیم یا crash | `PENDING` |
 | `PERF08` | خروج headless و ObjectDB | بدون هشدار نشت در suite نهایی | `PASSED (خودکار)`؛ جلسهٔ طولانی و خروج دستگاه `PENDING` |
-| `PERF09` | اندازهٔ APK release | ثبت عدد و hash | `PASSED (بسته)`: ۷۹٬۵۳۰٬۱۰۸ بایت |
+| `PERF09` | اندازهٔ APK release | ثبت عدد و hash | `PASSED (بسته)`: ۷۹٬۵۳۸٬۴۷۵ بایت |
 
 ## ۱۳. APK، امضا و نصب Android
 
@@ -361,7 +361,7 @@ ROOTS_TESTS: 325 checks, 0 failures
 | --- | --- | --- |
 | فایل نهایی | `builds/android/roots-of-sacrifice-debug.apk` | `builds/android/roots-of-sacrifice-release.apk` |
 | اندازه | `84,732,421` بایت | `79,530,109` بایت |
-| SHA-256 | `9a98c06b8d5a46e69c4778f4cbe83c57ed35658bcd730ceca75f4289c120e256` | `7a8cd05a6726d9288d00968187540cd19b0f8d7de96407cd675c05d27a6f3e25` |
+| SHA-256 | `7baded8d5b7775915b73cc03d7d15c31a89ee388508bd6c4a9faac0f3f52c62f` | `8636361cd38bc320f01c5c5ba4a9bd01eb89bb5af8bcbf5fe2a17b700044ab4b` |
 
 metadata مشترک از `builds/test-results/android-*-badging.txt`:
 

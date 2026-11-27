@@ -5,6 +5,7 @@ const UI = preload("res://scripts/ui_factory.gd")
 const CONTENT = preload("res://scripts/data/game_content.gd")
 const WORLD = preload("res://scripts/world.gd")
 const JOYSTICK = preload("res://scripts/touch_joystick.gd")
+const MAX_NOTIFICATION_QUEUE := 12
 
 var world: WorldController
 var screen: Control
@@ -14,6 +15,7 @@ var modal: Control
 var _modal_body: VBoxContainer
 var _modal_footer: HBoxContainer
 var _hud: HBoxContainer
+var _hud_chips: Array[TextureRect] = []
 var _quest_button: TextureButton
 var _map_button: TextureButton
 var _quest_label: Label
@@ -22,8 +24,8 @@ var _bottom_bar: HBoxContainer
 var _toast_label: Label
 var _toast_timer: Timer
 var _joystick: Control
-var _action_button: Button
-var _water_action_button: Button
+var _action_button: TouchActionButton
+var _water_action_button: TouchActionButton
 var _tutorial_layer: Control
 var _tutorial_card: PanelContainer
 var _tutorial_highlight: PanelContainer
@@ -69,6 +71,8 @@ func _ready() -> void:
 	GameState.time_changed.connect(_refresh_clock)
 	GameState.day_started.connect(_on_day_started)
 	overlay = _layer()
+	# Keep tutorial and modal layers above contextual world controls such as the water shortcut.
+	overlay.z_index = 100
 	add_child(overlay)
 	_toast_label = UI.text("", 20, UI.CREAM, true)
 	_toast_label.position = Vector2(310, 78)
@@ -103,6 +107,8 @@ func _process(delta: float) -> void:
 		done = int(GameState.data.stats.planted) > int(_tutorial_baseline.get("planted", 0))
 	elif action == "water":
 		done = int(GameState.data.stats.watered) > int(_tutorial_baseline.get("watered", 0))
+	elif action == "compost":
+		done = int(GameState.data.stats.compost_built) > int(_tutorial_baseline.get("compost_built", 0))
 	if done != _tutorial_action_done:
 		_tutorial_action_done = done
 		_refresh_tutorial_continue()
@@ -118,6 +124,8 @@ func _layer() -> Control:
 func _clear_screen() -> void:
 	_close_tutorial(false)
 	_close_modal(false)
+	# The simulation runs only while a live gameplay screen owns the world.
+	GameState.time_paused = not _in_game
 	get_tree().paused = false
 	AudioManager.set_paused(false)
 	_audio_paused_by_focus = false
@@ -126,6 +134,8 @@ func _clear_screen() -> void:
 	_map_button = null
 	_quest_label = null
 	_clock_label = null
+	_hud = null
+	_hud_chips.clear()
 	_bottom_bar = null
 	if is_instance_valid(screen):
 		screen.free()
@@ -403,7 +413,7 @@ func _show_game() -> void:
 		["عمل", "action", UI.GREEN, "primary", Vector2(984, 616), func() -> void: world.interact(), "تعامل با هدف نزدیک"],
 		["آب", "water", UI.WATER, "water", Vector2(1120, 616), func() -> void: world.water_nearest(), "آبیاری نزدیک‌ترین نهال"],
 	]:
-		var button := UI.button(entry[0], entry[5], entry[1], entry[3])
+		var button := UI.touch_button(entry[0], entry[5], entry[1], entry[3])
 		button.position = entry[4]
 		button.custom_minimum_size = Vector2(120, 88)
 		button.size = Vector2(120, 88)
@@ -463,6 +473,7 @@ func _hud_chip(icon_name: String, value_text: String, width: float, font_size: i
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# HUD values stay centered even though most game text is right-aligned.
 	label.set_meta("hud_text", true)
+	chip.set_meta("value_label", label)
 	row.add_child(label)
 	if not caption.is_empty():
 		var caption_label := UI.text(caption, 10, UI.CREAM)
@@ -474,17 +485,26 @@ func _hud_chip(icon_name: String, value_text: String, width: float, font_size: i
 		column.add_child(caption_label)
 	return chip
 
-# Rebuilds HUD values and mission progress from the current game state.
+# Updates HUD values in place and rebuilds chips only when a new gameplay screen is created.
 func _refresh_hud() -> void:
 	if not _in_game or not is_instance_valid(_hud) or not is_instance_valid(_quest_label):
 		return
-	for child in _hud.get_children():
-		child.free()
-	for item in [["star", GameState.data.scores.stars, "ستاره"], ["leaf", GameState.data.scores.eco, "سبزی"], ["heart", GameState.data.scores.social, "همکاری"], ["book", GameState.data.scores.culture, "دانش"], ["water", GameState.data.resources.water, "آب"], ["seed", GameState.data.resources.seeds, "بذر"], ["soil", GameState.data.resources.compost, "کمپوست"]]:
-		_hud.add_child(_hud_chip(item[0], UI.number(int(item[1])), 72, 17, item[2]))
-	var clock_chip := _hud_chip("sun", "", 260, 16, "زمان")
-	_clock_label = clock_chip.get_child(0).get_child(0).get_child(1) as Label
-	_hud.add_child(clock_chip)
+	var items: Array = [["star", GameState.data.scores.stars, "ستاره"], ["leaf", GameState.data.scores.eco, "سبزی"], ["heart", GameState.data.scores.social, "همکاری"], ["book", GameState.data.scores.culture, "دانش"], ["water", GameState.data.resources.water, "آب"], ["seed", GameState.data.resources.seeds, "بذر"], ["soil", GameState.data.resources.compost, "کمپوست"]]
+	if _hud_chips.size() != items.size():
+		for child in _hud.get_children():
+			child.free()
+		_hud_chips.clear()
+		for item in items:
+			var chip: TextureRect = _hud_chip(item[0], UI.number(int(item[1])), 72, 17, item[2])
+			_hud.add_child(chip)
+			_hud_chips.append(chip)
+	if not is_instance_valid(_clock_label):
+		var clock_chip: TextureRect = _hud_chip("sun", "", 260, 16, "زمان")
+		_clock_label = clock_chip.get_child(0).get_child(0).get_child(1) as Label
+		_hud.add_child(clock_chip)
+	for index in range(items.size()):
+		var value_label: Label = _hud_chips[index].get_meta("value_label")
+		value_label.text = UI.number(int(items[index][1]))
 	_refresh_clock()
 	var chapter := GameState.current_chapter()
 	var completed_tasks := 0
@@ -515,6 +535,8 @@ func _music_for_current_scene() -> String:
 
 # Plays the new-day cue and refreshes scene music.
 func _on_day_started(_day: int) -> void:
+	if not _in_game:
+		return
 	AudioManager.play_sfx("grow", 0.85)
 	AudioManager.play_music(_music_for_current_scene())
 
@@ -581,6 +603,13 @@ func _open_modal(title: String, modal_size: Vector2 = Vector2(800, 576)) -> Pane
 		overlay.move_child(_toast_label, overlay.get_child_count() - 1)
 	return container
 
+# Makes a closing modal input-transparent before its dismissal animation finishes.
+func _set_input_transparent(node: Node) -> void:
+	if node is Control:
+		(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children():
+		_set_input_transparent(child)
+
 # Animates dismissal, restores prior pause and audio state, and re-enables gameplay input.
 func _close_modal(allow_return: bool = true) -> void:
 	# Snapshot restoration flags before clearing the active modal reference.
@@ -595,6 +624,7 @@ func _close_modal(allow_return: bool = true) -> void:
 	if is_instance_valid(_toast_label):
 		_toast_label.position = Vector2(310, 78)
 	if is_instance_valid(closing):
+		_set_input_transparent(closing)
 		if bool(GameState.settings.get("reduced_motion", false)):
 			closing.queue_free()
 		else:
@@ -606,7 +636,7 @@ func _close_modal(allow_return: bool = true) -> void:
 		_pause()
 		return
 	get_tree().paused = restore_pause
-	AudioManager.set_paused(restore_audio_pause)
+	AudioManager.set_paused(restore_audio_pause or _audio_paused_by_focus)
 	if is_instance_valid(world):
 		world.enabled = _in_game
 	if is_instance_valid(_action_button):
@@ -644,7 +674,8 @@ func _next_intro() -> void:
 func _interaction(kind: String, index: int) -> void:
 	if _tutorial_active():
 		var step: Dictionary = _tutorial_steps[_tutorial_index]
-		if String(step.get("complete_on", "")) == kind:
+		# Compost completes only after construction changes stats, not when its panel merely opens.
+		if String(step.get("complete_on", "")) == kind and kind != "compost":
 			_tutorial_action_done = true
 			_refresh_tutorial_continue()
 	match kind:
@@ -875,9 +906,6 @@ func _open_story(npc_index: int, chapter_id: int) -> void:
 
 # Shows compost construction, batch progress, collection, and production actions.
 func _compost() -> void:
-	if _tutorial_active() and String(_tutorial_steps[_tutorial_index].get("complete_on", "")) == "compost":
-		_tutorial_action_done = true
-		_refresh_tutorial_continue()
 	var station: Dictionary = GameState.data.compost_station
 	var built := bool(station.built)
 	var construction_done := bool(station.construction_done)
@@ -997,7 +1025,7 @@ func _compost() -> void:
 					world.play_action("compost")
 			_compost()
 		, "recycle", "primary")
-		batch_button.disabled = raw_compost < 1
+		batch_button.disabled = raw_compost < 1 or ready > 4
 		_modal_footer.add_child(batch_button)
 
 # Lists current chapter tasks with progress and context-specific actions.
@@ -1058,7 +1086,7 @@ func _finish_chapter() -> void:
 func _advance_after_chapter(chapter_id: int) -> void:
 	if chapter_id < 8:
 		GameState.next_chapter()
-		_show_game()
+		_resume_live_world()
 		_intro_index = 0
 		_show_intro()
 	else:
@@ -1077,6 +1105,31 @@ func _chapter_finished(chapter_id: int) -> void:
 	_modal_body.add_child(UI.text("محیط زیست +" + UI.number(int(reward.eco)) + "  ·  مسئولیت +" + UI.number(int(reward.social)) + "  ·  آگاهی +" + UI.number(int(reward.culture)), 21))
 	_modal_footer.add_child(UI.button("رفتن به فصل بعد" if chapter_id < 8 else "پایان داستان", func() -> void: _advance_after_chapter(chapter_id), "play", "accent"))
 
+# Resumes the existing world after a modal instead of rebuilding the full gameplay screen.
+func _resume_live_world() -> void:
+	_close_modal()
+	_close_tutorial(false)
+	if not _in_game or not is_instance_valid(world):
+		_show_game()
+		return
+	world.enabled = true
+	_refresh_hud()
+	_refresh_touch_controls()
+	AudioManager.set_paused(false)
+	AudioManager.play_music(_music_for_current_scene())
+
+# Visits an unlocked zone while allowing GameState.changed to refresh actors exactly once.
+func _visit_zone(zone: String) -> void:
+	if not GameState.zone_unlocked(zone):
+		return
+	if String(GameState.data.get("zone", "")) != zone:
+		if not GameState.set_zone(zone):
+			return
+	elif is_instance_valid(world):
+		world.refresh()
+	_resume_live_world()
+	_maybe_start_zone_tutorial(zone)
+
 # Shows unlocked zones and completed chapters for navigation.
 func _map() -> void:
 	_open_modal("نقشهٔ شهر و انتخاب فصل", Vector2(900, 610))
@@ -1086,9 +1139,7 @@ func _map() -> void:
 		# Capture loop values so each navigation button targets its own destination.
 		var zone_id: String = entry[0]
 		var btn := UI.button(entry[1], func() -> void:
-			if GameState.set_zone(zone_id):
-				_show_game()
-				_maybe_start_zone_tutorial(zone_id)
+			_visit_zone(zone_id)
 		, "map")
 		btn.disabled = not GameState.zone_unlocked(zone_id)
 		btn.add_theme_font_size_override("font_size", 18)
@@ -1098,9 +1149,7 @@ func _map() -> void:
 		var id := int(chapter.id)
 		var status := "کامل" if id in GameState.data.completed else ("فعال" if id == int(GameState.data.chapter) else "قفل")
 		var btn := UI.button(UI.number(id) + " · " + String(chapter.title) + "  —  " + status, func() -> void:
-			if GameState.set_zone(chapter.location):
-				_show_game()
-				_maybe_start_zone_tutorial(chapter.location)
+			_visit_zone(String(chapter.location))
 		, "check" if id in GameState.data.completed else ("play" if id == int(GameState.data.chapter) else "lock"))
 		btn.disabled = id > int(GameState.data.chapter)
 		_modal_body.add_child(btn)
@@ -1126,9 +1175,9 @@ func _plants() -> void:
 			var target_zone: String = zone
 			var target_index := index
 			row.add_child(UI.button("بازدید", func() -> void:
-				GameState.set_zone(target_zone)
-				_show_game()
-				world.set_player_position(world.plot_position(target_index) + Vector2(65, 40))
+				_visit_zone(target_zone)
+				if is_instance_valid(world):
+					world.set_player_position(world.plot_position(target_index) + Vector2(65, 40))
 			, "map"))
 	if not found:
 		_modal_body.add_child(UI.text("هنوز نهالی نکاشته‌ای؛ با یکی از بسترهای باغ تعامل کن.", 26))
@@ -1626,6 +1675,11 @@ func _achievement(id: String) -> void:
 func _toast(message: String) -> void:
 	if not is_instance_valid(_toast_label):
 		return
+	# Collapse consecutive duplicates and cap backlog so repeated actions cannot stall notifications.
+	if (not _notification_queue.is_empty() and _notification_queue.back() == message) or (_toast_label.visible and _toast_label.text == message):
+		return
+	if _notification_queue.size() >= MAX_NOTIFICATION_QUEUE:
+		_notification_queue.pop_front()
 	_notification_queue.append(message)
 	if _toast_timer.is_stopped():
 		_next_toast()
@@ -1747,8 +1801,8 @@ func _close_tutorial(mark_seen: bool) -> void:
 	_tutorial_continue = null
 	_tutorial_id = ""
 	_tutorial_steps = []
-	GameState.time_paused = false
-	AudioManager.set_paused(is_instance_valid(modal) or get_tree().paused)
+	GameState.time_paused = not _in_game or is_instance_valid(modal) or get_tree().paused
+	AudioManager.set_paused(GameState.time_paused or _audio_paused_by_focus)
 	if is_instance_valid(world):
 		world.enabled = true
 	if mark_seen and not closing_id.is_empty():
@@ -1851,12 +1905,12 @@ func _request_quit() -> void:
 		get_tree().quit()
 	, "close", "accent"))
 
-# Route Back through tutorial guard, modal close, gameplay pause, or quit confirmation.
+# Route Back through modal close, tutorial quit confirmation, gameplay pause, or title quit.
 func _handle_back_action() -> void:
-	if _tutorial_active():
-		return
 	if is_instance_valid(modal):
 		_close_modal()
+	elif _tutorial_active():
+		_request_quit()
 	elif _in_game:
 		_pause()
 	else:
@@ -1879,7 +1933,8 @@ func _notification(what: int) -> void:
 		_audio_paused_by_focus = false
 		_remember_position()
 		GameState.save_game()
-		if not _tutorial_active():
+		# Preserve an open modal or tutorial instead of replacing it with Pause on backgrounding.
+		if not is_instance_valid(modal) and not _tutorial_active():
 			_pause()
 	elif what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		if not _audio_paused_by_focus:

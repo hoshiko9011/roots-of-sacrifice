@@ -71,7 +71,7 @@
 | برندهای دیگر | تست فیزیکی نشده | شامل Realme، Oppo، Vivo، Honor، Nokia و سایر برندها |
 | armv7 / `armeabi-v7a` | بسته‌بندی شده، تست فیزیکی نشده | کتابخانهٔ ARMv7 در APK وجود دارد اما روی دستگاه armv7 اجرا نشده است |
 | GPU Adreno و PowerVR | تست فیزیکی نشده | فقط Mali-G720 روی Poco X7 Pro شاهد فیزیکی دارد |
-| Windows Desktop | تست خودکار و رندر تصویری شده | اجرای headless، ۳۲۵ بررسی و رندر صحنه‌ها؛ بازی‌کردن دستی کامل دسکتاپ انجام نشده است |
+| Windows Desktop | تست خودکار و رندر تصویری شده | اجرای headless، ۳۵۷ بررسی و رندر صحنه‌ها؛ بازی‌کردن دستی کامل دسکتاپ انجام نشده است |
 
 ### آزمون‌های فیزیکی انجام‌شده روی Poco X7 Pro
 
@@ -123,12 +123,14 @@ WorldController.interaction(kind, index)
 | `scripts/player.gd` | حرکت `CharacterBody2D`، برخورد هندسی و انیمیشن بازیکن |
 | `scripts/plot.gd` | رسم و وضعیت بصری هر بستر و نهال |
 | `scripts/touch_joystick.gd` | ورودی لمس جوی‌استیک و reset هنگام pause/focus loss |
+| `scripts/touch_action_button.gd` | دکمهٔ Action/Water با چندلمسی مستقل و لغو امن لمس |
 | `scripts/ui_factory.gd` | کنترل‌های فارسی/RTL، فونت، دکمه، پنل، تصویر و نوار پیشرفت |
 | `scripts/atlas.gd` | cache دارایی، `AtlasTexture` و نگاشت گیاه/آیکون |
 | `scripts/audio_manager.gd` | cache صدا، crossfade موسیقی، ambience، SFX و وضعیت pause |
 | `assets/art/cinematic_garden.gdshader` | حرکت برگ، شال، ابر، فواره، موج و زوم آرام تصویر سینمایی |
 | `tests/run_tests.gd` | تست منطق، محتوا، دارایی، ذخیره و UI smoke |
-| `tools/build_android.sh` | import، export، align، امضا و بررسی APK |
+| `tools/build_android.sh` | اجرای تست، import، export، align، امضا و بررسی APK |
+| `docs/QA_AUDIT.md` | گزارش بازرسی فنی، اصلاحات، تست‌ها، کارایی و محدودیت‌های دستگاه |
 
 ## سیستم‌های بازی
 
@@ -324,7 +326,7 @@ godot --headless --path . --scene res://tests/test_runner.tscn
 نتیجهٔ تأییدشده در ۲۰۲۶-۱۱-۲۶:
 
 ```text
-ROOTS_TESTS: 325 checks, 0 failures
+ROOTS_TESTS: 357 checks, 0 failures
 ```
 
 ### تولید مجدد دارایی‌ها

@@ -539,7 +539,7 @@ ROOTS_TESTS: 325 checks, 0 failures
 
 ### ۱۲.۳. شواهد فعلی و محدودیت‌ها
 
-در ۲۰۲۶-۱۱-۲۶ هر دو APK نهایی با ابزارهای صریح JDK 21 و Android Build Tools 36.0.0 ساخته، align و امضا شدند. `apksigner verify` برای هر دو Scheme v2 و v3 را تأیید کرد؛ `aapt2` نام بسته، نسخه، SDK و ABIها را خواند و خروجی permissions فقط نام بسته را داشت. دادهٔ Godot در قالب `assets/assets.sparsepck` و فایل‌های exported مانند `assets/scripts/main.gdc` داخل APK وجود دارد.
+در ۲۰۲۶-۱۱-۲۷ هر دو APK نهایی با ابزارهای صریح JDK 21 و Android Build Tools 36.0.0 ساخته، align و امضا شدند. `apksigner verify` برای هر دو Scheme v2 و v3 را تأیید کرد؛ `aapt2` نام بسته، نسخه، SDK و ABIها را خواند و خروجی permissions فقط نام بسته را داشت. دادهٔ Godot در قالب `assets/assets.sparsepck` و فایل‌های exported مانند `assets/scripts/main.gdc` داخل APK وجود دارد.
 
 - Package: `ir.roots_of_sacrifice.game`؛ نسخه `1.0.0`، code `1`.
 - SDK: min `24`، target/compile `36`.
