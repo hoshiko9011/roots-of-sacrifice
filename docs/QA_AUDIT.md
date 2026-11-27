@@ -104,8 +104,8 @@ FPS حالت headless معیار سریع‌تر اجرای حلقهٔ engine ا
 
 | فایل | اندازه | SHA-256 |
 |---|---:|---|
-| `builds/android/roots-of-sacrifice-debug.apk` | ۸۴٬۷۴۰٬۷۸۷ بایت | `7baded8d5b7775915b73cc03d7d15c31a89ee388508bd6c4a9faac0f3f52c62f` |
-| `builds/android/roots-of-sacrifice-release.apk` | ۷۹٬۵۳۸٬۴۷۵ بایت | `8636361cd38bc320f01c5c5ba4a9bd01eb89bb5af8bcbf5fe2a17b700044ab4b` |
+| `builds/android/roots-of-sacrifice-debug.apk` | ۸۴٬۷۴۰٬۷۹۲ بایت | `305cac9b5bff98b65e92954fcfe121620219d43b376d66dd3b54e8f3e2c8d2a4` |
+| `builds/android/roots-of-sacrifice-release.apk` | ۷۹٬۵۳۸٬۴۷۶ بایت | `fbad8801c85f068af36c4d464f85c59861db28d09486485673c770118ac9e615` |
 
 ### تست فیزیکی تکمیلی روی Poco X7 Pro
 

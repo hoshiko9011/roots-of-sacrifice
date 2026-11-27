@@ -8,9 +8,25 @@ cd "$ROOT"
 
 # Allow CI or local toolchains to override these defaults without editing the script.
 GODOT_BIN="${GODOT_BIN:-$ROOT/tools/Godot_v4.7.2-stable_win64_console.exe}"
-ANDROID_SDK="${ANDROID_SDK:-C:/Users/Yasamin/.evolab-toolchain/sdk}"
-JDK_HOME="${JDK_HOME:-C:/Users/Yasamin/.evolab-toolchain/jdk-21.0.13.1+2}"
-BUILD_TOOLS="${ANDROID_BUILD_TOOLS:-$ANDROID_SDK/build-tools/36.0.0}"
+# Set these for your machine before running the script, e.g.:
+#   export ANDROID_SDK="/path/to/android-sdk"
+#   export JDK_HOME="/path/to/jdk-21"
+#   export ANDROID_BUILD_TOOLS="/path/to/android-sdk/build-tools/36.0.0"
+ANDROID_SDK="${ANDROID_SDK:-}"
+JDK_HOME="${JDK_HOME:-}"
+BUILD_TOOLS="${ANDROID_BUILD_TOOLS:-}"
+if [[ -z "$BUILD_TOOLS" && -n "$ANDROID_SDK" ]]; then
+  BUILD_TOOLS="$ANDROID_SDK/build-tools/36.0.0"
+fi
+if [[ -z "$ANDROID_SDK" || -z "$JDK_HOME" || -z "$BUILD_TOOLS" ]]; then
+  printf 'Set ANDROID_SDK, JDK_HOME, and optionally ANDROID_BUILD_TOOLS before running this script.\n' >&2
+  printf 'Example:\n' >&2
+  printf '  export GODOT_BIN="/path/to/godot"\n' >&2
+  printf '  export JDK_HOME="/path/to/jdk-21"\n' >&2
+  printf '  export ANDROID_SDK="/path/to/android-sdk"\n' >&2
+  printf '  export ANDROID_BUILD_TOOLS="/path/to/android-sdk/build-tools/36.0.0"\n' >&2
+  exit 1
+fi
 
 # Locate the Android packaging, signing, inspection, and JAR utilities.
 ZIPALIGN="$BUILD_TOOLS/zipalign.exe"
