@@ -81,7 +81,7 @@ var _atmosphere: Atmosphere
 var _prompt: PanelContainer
 var _prompt_icon: TextureRect
 var _prompt_label: Label
-var _water_button: Button
+var _water_button: TouchActionButton
 var _compost_sprite: Sprite2D
 var _bursts: Array[Node2D] = []
 var _zone: String = ""
@@ -175,7 +175,7 @@ func _build_prompt() -> void:
 
 # Provide a thumb-sized contextual button for a nearby thirsty plant.
 func _build_water_button() -> void:
-	_water_button = UIFactory.button("آب", func() -> void: water_nearest(), "", "water")
+	_water_button = UIFactory.touch_button("آب", func() -> void: water_nearest(), "", "water")
 	_water_button.custom_minimum_size = Vector2(78, 78)
 	_water_button.size = Vector2(78, 78)
 	_water_button.z_index = 90
@@ -569,12 +569,20 @@ func _click_target(point: Vector2) -> void:
 			continue
 		get_viewport().set_input_as_handled()
 		_last_pointer_ms = now
-		interaction.emit("npc", i)
+		var distance := player_position().distance_to(NPC_POSITIONS[i])
+		if distance <= INTERACTION_DISTANCE:
+			interaction.emit("npc", i)
+		else:
+			_show_hint("برای گفت‌وگو، به راهنما نزدیک شو و دکمهٔ «عمل» را بزن.")
 		return
 	if _zone in ["garden", "school"] and point.distance_to(COMPOST_POSITION) <= 62.0:
 		get_viewport().set_input_as_handled()
 		_last_pointer_ms = now
-		interaction.emit("compost", 0)
+		var distance := player_position().distance_to(COMPOST_POSITION)
+		if distance <= INTERACTION_DISTANCE:
+			interaction.emit("compost", 0)
+		else:
+			_show_hint("برای کار با کمپوست، به ایستگاه نزدیک شو و دکمهٔ «عمل» را بزن.")
 		return
 	for i in range(_litter.size()):
 		if not _litter[i].visible or point.distance_to(LITTER_POSITIONS[i]) > 34.0:
@@ -799,7 +807,7 @@ class Atmosphere:
 				var twinkle := 0.45 + 0.35 * sin(time * 1.5 + float(star))
 				draw_circle(star_point, 1.4 if star % 4 else 2.2, Color(0.92, 0.95, 1.0, twinkle * night))
 			# Light only lamps that exist in the current zone's scenery.
-			if world._zone in ["city", "park"]:
+			if world._zone == "city":
 				for lamp in [Vector2(545, 290), Vector2(825, 605)]:
 					draw_circle(lamp, 54.0, Color(1.0, 0.77, 0.38, 0.08 * night))
 					draw_circle(lamp, 26.0, Color(1.0, 0.86, 0.52, 0.12 * night))

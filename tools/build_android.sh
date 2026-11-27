@@ -85,6 +85,10 @@ for name in garden path rain title; do
   fi
 done
 
+# Run the full regression suite before producing any distributable package.
+printf 'Running Godot regression suite...\n'
+"$GODOT_BIN" --headless --path "$ROOT" --scene res://tests/test_runner.tscn
+
 # Export debug and release APKs as unsigned packages for the signing stage.
 printf 'Exporting Android debug and release APKs...\n'
 "$GODOT_BIN" --headless --path "$ROOT" --export-debug "Android Debug" "$OUTPUT_DIR/roots-of-sacrifice-debug-unsigned.apk"

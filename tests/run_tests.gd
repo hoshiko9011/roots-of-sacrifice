@@ -45,6 +45,7 @@ func _run() -> void:
 	_test_settings_persistence()
 	_test_validation()
 	_test_time_and_care()
+	_test_audit_regressions()
 	_test_npc_stories()
 	_test_mission_regressions()
 	_test_polished_assets()
@@ -216,7 +217,7 @@ func _test_backup_failure() -> void:
 	Engine.set_print_error_messages(false)
 	var saved: bool = backup_state.save_game()
 	Engine.set_print_error_messages(true)
-	_check(not saved and FileAccess.get_file_as_string(save_path) == original and not backup_state.save_error.is_empty(), "failed backup creation preserves the previous primary save")
+	_check(not saved and FileAccess.get_file_as_string(save_path) == original and not backup_state.save_error.is_empty() and not FileAccess.file_exists(backup_path + ".tmp"), "failed backup creation preserves the previous primary save and leaves no partial backup")
 	for path in [save_path, save_path + ".tmp", backup_path, backup_path + ".tmp"]:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)
@@ -284,7 +285,7 @@ func _test_mission_regressions() -> void:
 	mission_state.plots("garden")[0].dead = true
 	mission_state.clear_dead_plot(0)
 	mission_state.plant_tree(0, "cypress")
-	_check(mission_state.has_memorial("garden", 0), "clearing and replanting a memorial bed preserves its existing plaque record")
+	_check(mission_state.has_memorial("garden", 0) and String(mission_state.plots("garden")[0].name) == "سرو امید", "clearing and replanting a memorial bed preserves its plaque record and visible name")
 	_check(not mission_state.save_memorial("garden", 0, "سرو تازه", "پیام تازه"), "a replanted memorial bed cannot silently submit a duplicate plaque")
 	# Existing memorials must count on entry instead of causing a chapter deadlock.
 	mission_state.data.chapter = 4
@@ -448,6 +449,94 @@ func _test_time_and_care() -> void:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)
 	care.free()
+
+# Cover audit regressions for save safety, clock persistence, compost capacity, and build gating.
+func _test_audit_regressions() -> void:
+	var audit_save := "user://roots-audit-save.json"
+	var audit_backup := "user://roots-audit-backup.json"
+	for path in [audit_save, audit_backup, audit_save + ".tmp", audit_backup + ".tmp"]:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(path)
+	var audit = STATE_SCRIPT.new()
+	audit.save_path = audit_save
+	audit.backup_path = audit_backup
+	add_child(audit)
+	_check(audit.new_game(), "audit state starts with a valid save")
+	# Clock-only changes must not use the ten-second gameplay autosave cadence.
+	audit.time_paused = false
+	audit.data.time_of_day = 1.0
+	audit._dirty = false
+	audit._clock_dirty = false
+	audit._clock_save_elapsed = 0.0
+	var before_clock_save := FileAccess.get_file_as_string(audit_save)
+	audit._process(0.1)
+	audit._autosave()
+	_check(audit._clock_dirty and not audit._dirty and FileAccess.get_file_as_string(audit_save) == before_clock_save, "idle clock ticks do not trigger the gameplay autosave timer")
+	audit._clock_save_elapsed = audit.CLOCK_SAVE_INTERVAL
+	audit._autosave()
+	_check(not audit._clock_dirty and FileAccess.get_file_as_string(audit_save) != before_clock_save, "clock-only progress persists at its one-minute threshold")
+	# Failed autosave must remain visible and must not replace the valid primary.
+	var notices: Array[String] = []
+	audit.notification.connect(func(message: String) -> void: notices.append(message))
+	audit.backup_path = "user://roots-audit-missing-dir/backup.json"
+	audit._last_save_error_notification_ms = -audit.SAVE_ERROR_NOTIFICATION_INTERVAL_MS
+	var primary_before_failure := FileAccess.get_file_as_string(audit_save)
+	audit.data.day += 1
+	audit._dirty = true
+	audit._autosave()
+	_check(not notices.is_empty() and not audit.save_error.is_empty() and FileAccess.get_file_as_string(audit_save) == primary_before_failure and audit._dirty, "autosave failure notifies the player and preserves valid progress for retry")
+	_check(not FileAccess.file_exists(audit.backup_path + ".tmp"), "failed backup rotation leaves no partial backup temporary file")
+	# A station at five or six ready units cannot accept a batch whose output would be discarded.
+	audit.data.compost_station.built = true
+	audit.data.compost_station.construction_done = true
+	audit.data.compost_station.batch_active = false
+	audit.data.compost_station.ready_compost = 6
+	audit.data.resources.compost = 1
+	_check(not audit.start_compost_batch() and int(audit.data.resources.compost) == 1 and int(audit.data.compost_station.ready_compost) == 6, "full compost storage rejects a batch without consuming raw compost")
+	# Missing species keys in old version-two records must not abort migration.
+	var malformed_v2: Dictionary = audit.data.duplicate(true)
+	malformed_v2.version = 2
+	malformed_v2.zones.garden.plots[0].erase("species")
+	malformed_v2.memorials = [{"key": "garden:0", "zone": "garden", "plot": 0, "name": "نهال", "message": "پیام", "day": 1}]
+	var migrated_v2: Dictionary = audit._migrate_state(malformed_v2)
+	_check(migrated_v2 is Dictionary and int(migrated_v2.version) == 3, "version-two migration tolerates missing species fields without script errors")
+	# Reused wind ambience must update its location gain without restarting the stream.
+	var old_audio_enabled := AudioManager._audio_enabled
+	var old_track := AudioManager._track
+	var old_zone := AudioManager._zone
+	var old_active := AudioManager._active_ambience
+	var old_name := AudioManager._ambience_name
+	var old_scales := AudioManager._ambience_scales.duplicate()
+	AudioManager._audio_enabled = true
+	AudioManager._track = "garden"
+	AudioManager._zone = "garden"
+	AudioManager._active_ambience = 0
+	AudioManager._ambience_name = "sfx_wind"
+	AudioManager._ambience_scales[0] = 0.8
+	var wind := AudioManager._stream("sfx_wind", true)
+	AudioManager._ambience_players[0].stream = wind
+	AudioManager._ambience_players[0].play()
+	AudioManager.set_zone("school")
+	_check(is_equal_approx(float(AudioManager._ambience_scales[0]), 0.68), "location changes update reused ambience gain without restarting the wind stream")
+	AudioManager._ambience_players[0].stop()
+	AudioManager._ambience_players[0].stream = null
+	AudioManager._audio_enabled = old_audio_enabled
+	AudioManager._track = old_track
+	AudioManager._zone = old_zone
+	AudioManager._active_ambience = old_active
+	AudioManager._ambience_name = old_name
+	AudioManager._ambience_scales = old_scales
+	# Release packaging must stop before export when the regression suite fails.
+	var build_source := FileAccess.get_file_as_string("res://tools/build_android.sh")
+	var test_position := build_source.find("--scene res://tests/test_runner.tscn")
+	var export_position := build_source.find("--export-debug")
+	_check(test_position > 0 and export_position > test_position, "Android build script runs regression tests before exporting APKs")
+	var world_source := FileAccess.get_file_as_string("res://scripts/world.gd")
+	_check(world_source.contains("if world._zone == \"city\":") and not world_source.contains("if world._zone in [\"city\", \"park\"]:"), "night lamp glows are limited to the city where lamp props exist")
+	audit.free()
+	for path in [audit_save, audit_backup, audit_save + ".tmp", audit_backup + ".tmp"]:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(path)
 
 # Check story sourcing, fictional labels, narrator voices, and persisted progress.
 func _test_npc_stories() -> void:
@@ -1106,6 +1195,7 @@ func _test_ui_smoke() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_check(main._in_game and is_instance_valid(main.world), "continue restores the saved game")
+	await _test_ui_audit_regressions(main)
 	main._show_menu()
 	main._request_new()
 	_check(is_instance_valid(main.modal), "new-game confirmation protects an existing save")
@@ -1119,6 +1209,249 @@ func _test_ui_smoke() -> void:
 	for path in [ui_save, ui_backup, ui_save + ".tmp", ui_backup + ".tmp", ui_settings]:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)
+
+# Exercise the confirmed touch, lifecycle, modal, HUD, and world-reuse regressions.
+func _test_ui_audit_regressions(main) -> void:
+	var old_reduced_motion := bool(GameState.settings.reduced_motion)
+	var old_touch := bool(GameState.settings.touch)
+	GameState.settings.reduced_motion = false
+	GameState.settings.touch = true
+	main._close_modal(false)
+	main._close_tutorial(false)
+	main._in_game = true
+	if not is_instance_valid(main.world):
+		main._show_game()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	# Title and ending screens must not advance the simulation or plant care off-screen.
+	var day_before_idle := int(GameState.data.day)
+	GameState.data.time_of_day = 23.99
+	main._show_menu()
+	await get_tree().process_frame
+	GameState._process(0.2)
+	_check(int(GameState.data.day) == day_before_idle and is_equal_approx(float(GameState.data.time_of_day), 23.99) and GameState.time_paused, "title screen freezes day, time, and plant care")
+	main._show_ending()
+	await get_tree().process_frame
+	GameState._process(0.2)
+	_check(int(GameState.data.day) == day_before_idle and is_equal_approx(float(GameState.data.time_of_day), 23.99) and GameState.time_paused, "ending screen freezes day, time, and plant care")
+	main._show_game()
+	GameState.data.time_of_day = 1.0
+	await get_tree().process_frame
+	await get_tree().process_frame
+	# HUD labels and chips must update in place instead of allocating forty-nine nodes per signal.
+	var chip_ids: Array[int] = []
+	for chip in main._hud.get_children():
+		chip_ids.append(chip.get_instance_id())
+	for index in range(100):
+		GameState._touch()
+		main._refresh_hud()
+	var chips_reused: bool = chip_ids.size() == main._hud.get_child_count()
+	for index in range(chip_ids.size()):
+		chips_reused = chips_reused and main._hud.get_child(index).get_instance_id() == chip_ids[index]
+	_check(chips_reused and main._hud.get_child_count() == 8, "one hundred HUD refreshes reuse all eight chip instances")
+	# Zone visits must retain the live screen, world, and HUD owners.
+	var screen_id: int = main.screen.get_instance_id()
+	var world_id: int = main.world.get_instance_id()
+	var original_chapter := int(GameState.data.chapter)
+	GameState.data.chapter = 4
+	main._visit_zone("school")
+	await get_tree().process_frame
+	_check(main.screen.get_instance_id() == screen_id and main.world.get_instance_id() == world_id and String(GameState.data.zone) == "school", "map travel reuses the live world instead of rebuilding the gameplay screen")
+	GameState.data.chapter = original_chapter
+	GameState.data.zone = "garden"
+	main.world.refresh()
+	# Closing modals must stop intercepting input before their dismissal tween ends.
+	main._open_modal("آزمون بستن", Vector2(420, 260))
+	var closing_modal: Node = main.modal
+	main._close_modal()
+	_check(is_instance_valid(closing_modal) and _ui_input_transparent(closing_modal), "dismissing modal is input-transparent during its fade-out")
+	# A deferred close after focus loss must not resume audio in the background.
+	main._open_modal("آزمون فوکوس", Vector2(420, 260))
+	main._notification(NOTIFICATION_APPLICATION_FOCUS_OUT)
+	var focus_close := _ui_find_button(main.modal, "بستن")
+	if focus_close != null:
+		focus_close.pressed.emit()
+	await get_tree().process_frame
+	_check(not is_instance_valid(main.modal) and AudioManager.is_paused(), "deferred modal close preserves focus-loss audio pause")
+	main._notification(NOTIFICATION_APPLICATION_FOCUS_IN)
+	_check(not AudioManager.is_paused(), "focus return restores audio after the deferred modal close")
+	# Back closes tutorial submodals first and offers quit confirmation without skipping the tutorial.
+	main._start_tutorial("first_run", true)
+	main._missions()
+	main._handle_back_action()
+	await get_tree().process_frame
+	_check(not is_instance_valid(main.modal) and main._tutorial_active(), "Back closes a tutorial submodal before handling the tutorial")
+	main._handle_back_action()
+	await get_tree().process_frame
+	_check(is_instance_valid(main.modal) and main._tutorial_active() and _ui_contains_text(main.modal, "خروج از بازی"), "Back during a tutorial opens quit confirmation and preserves the tutorial")
+	main._close_modal()
+	main._close_tutorial(false)
+	# Backgrounding must preserve an already open modal instead of replacing it with Pause.
+	main._missions()
+	var paused_modal_id: int = main.modal.get_instance_id()
+	main._notification(NOTIFICATION_APPLICATION_PAUSED)
+	await get_tree().process_frame
+	_check(is_instance_valid(main.modal) and main.modal.get_instance_id() == paused_modal_id and not get_tree().paused, "application pause preserves the active modal and navigation state")
+	main._handle_back_action()
+	# Compost tutorial completion depends on construction, not merely opening the station panel.
+	GameState.data.chapter = 3
+	GameState.data.compost_station.built = false
+	main._start_tutorial("compost", true, [{"title": "ساخت کمپوست", "text": "کارگاه را بساز.", "target": "compost", "complete_on": "compost"}])
+	main._interaction("compost", 0)
+	_check(main._tutorial_active() and not main._tutorial_action_done, "opening the compost station does not complete its construction tutorial")
+	GameState.data.stats.compost_built += 1
+	main._process(0.01)
+	_check(main._tutorial_action_done, "successful compost construction completes the tutorial step")
+	main._close_tutorial(false)
+	main._close_modal()
+	GameState.data.chapter = original_chapter
+	GameState.data.zone = "garden"
+	main.world.refresh()
+	_check(main.overlay.z_index > main.world._water_button.z_index and main.world._water_button is TouchActionButton, "tutorial overlay stays above the multitouch contextual water button")
+	# Notification bursts remain bounded and preserve the newest message.
+	main._notification_queue.clear()
+	main._toast_timer.stop()
+	main._toast_label.hide()
+	for index in range(100):
+		main._toast("پیام " + str(index))
+	_check(main._notification_queue.size() <= main.MAX_NOTIFICATION_QUEUE and main._notification_queue.back() == "پیام 99", "notification queue is bounded and keeps the newest message")
+	main._notification_queue.clear()
+	main._toast_label.hide()
+	main._toast_timer.stop()
+	# Verify canvas-coordinate conversion, cancellation, and simultaneous Action/Water touches at 1920x1080.
+	var old_window_size := get_tree().root.size
+	get_tree().root.size = Vector2i(1920, 1080)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var joystick: Variant = main._joystick
+	var joystick_transform: Transform2D = joystick.get_global_transform_with_canvas()
+	var press := InputEventScreenTouch.new()
+	press.index = 0
+	press.pressed = true
+	press.position = joystick_transform * Vector2(75, 75)
+	joystick._input(press)
+	_check(joystick._finger == 0, "joystick acquires a touch at its displayed center on a 1920x1080 viewport")
+	var drag := InputEventScreenDrag.new()
+	drag.index = 0
+	drag.position = joystick_transform * Vector2(127, 75)
+	joystick._input(drag)
+	_check(joystick._direction.x > 0.9 and absf(joystick._direction.y) < 0.1, "joystick drag direction remains accurate after canvas scaling")
+	main.world.set_player_position(main.world.plot_position(0) + Vector2(0, 65))
+	main.world._update_focus()
+	var action_signal_count: Array[int] = [0]
+	var action_callback := func() -> void:
+		action_signal_count[0] += 1
+	main._action_button.pressed.connect(action_callback)
+	var action_press := InputEventScreenTouch.new()
+	action_press.index = 1
+	action_press.pressed = true
+	action_press.position = Vector2(60, 44)
+	main._action_button._gui_input(action_press)
+	var action_was_multitouch: bool = main._action_button._touch_index == 1 and joystick._finger == 0 and main.world.touch_direction.x > 0.9
+	var action_release := InputEventScreenTouch.new()
+	action_release.index = 1
+	action_release.pressed = false
+	action_release.position = Vector2(60, 44)
+	main._action_button._gui_input(action_release)
+	main._action_button.pressed.disconnect(action_callback)
+	await get_tree().process_frame
+	_check(action_was_multitouch and action_signal_count[0] == 1 and main._action_button._touch_index == -1, "Action touch fires once while the joystick finger continues moving")
+	if is_instance_valid(main.modal):
+		main._close_modal()
+	# Reacquire movement and verify the independent Water touch uses the same multitouch path.
+	press.index = 2
+	press.pressed = true
+	press.position = joystick_transform * Vector2(75, 75)
+	joystick._input(press)
+	drag.index = 2
+	drag.position = joystick_transform * Vector2(127, 75)
+	joystick._input(drag)
+	var water_signal_count: Array[int] = [0]
+	var water_callback := func() -> void:
+		water_signal_count[0] += 1
+	main._water_action_button.pressed.connect(water_callback)
+	var water_press := InputEventScreenTouch.new()
+	water_press.index = 3
+	water_press.pressed = true
+	water_press.position = Vector2(60, 44)
+	main._water_action_button._gui_input(water_press)
+	var water_was_multitouch: bool = main._water_action_button._touch_index == 3 and joystick._finger == 2 and main.world.touch_direction.x > 0.9
+	var water_release := InputEventScreenTouch.new()
+	water_release.index = 3
+	water_release.pressed = false
+	water_release.position = Vector2(60, 44)
+	main._water_action_button._gui_input(water_release)
+	main._water_action_button.pressed.disconnect(water_callback)
+	await get_tree().process_frame
+	_check(water_was_multitouch and water_signal_count[0] == 1 and main._water_action_button._touch_index == -1, "Water touch fires once while the joystick finger continues moving")
+	var cancel := InputEventScreenTouch.new()
+	cancel.index = -1
+	cancel.pressed = false
+	cancel.canceled = true
+	joystick._input(cancel)
+	_check(joystick._finger == -1 and joystick._direction == Vector2.ZERO, "Android touch cancellation releases latched joystick movement")
+	press.index = 4
+	press.pressed = true
+	press.position = joystick_transform * Vector2(75, 75)
+	joystick._input(press)
+	_check(joystick._finger == 4, "joystick accepts a new touch after Android cancellation")
+	press.index = 4
+	press.pressed = false
+	press.position = joystick_transform * Vector2(75, 75)
+	joystick._input(press)
+	# Sliding off Action/Water or releasing the emulated mouse outside must cancel, not fire.
+	var cancel_buttons: Array[TouchActionButton] = [main._action_button, main._water_action_button]
+	var touch_cancel_ok: bool = true
+	var mouse_cancel_ok: bool = true
+	for button_index in range(cancel_buttons.size()):
+		var cancel_button: TouchActionButton = cancel_buttons[button_index]
+		var cancel_count: Array[int] = [0]
+		var cancel_callback := func() -> void:
+			cancel_count[0] += 1
+		cancel_button.pressed.connect(cancel_callback)
+		var touch_press := InputEventScreenTouch.new()
+		touch_press.index = 10 + button_index * 2
+		touch_press.pressed = true
+		touch_press.position = Vector2(60, 44)
+		cancel_button._gui_input(touch_press)
+		var touch_drag := InputEventScreenDrag.new()
+		touch_drag.index = touch_press.index
+		touch_drag.position = Vector2(500, 500)
+		cancel_button._gui_input(touch_drag)
+		var touch_release := InputEventScreenTouch.new()
+		touch_release.index = touch_press.index
+		touch_release.pressed = false
+		touch_release.position = Vector2(500, 500)
+		cancel_button._gui_input(touch_release)
+		touch_cancel_ok = touch_cancel_ok and cancel_count[0] == 0 and cancel_button._touch_index == -1
+		var mouse_press := InputEventMouseButton.new()
+		mouse_press.button_index = MOUSE_BUTTON_LEFT
+		mouse_press.pressed = true
+		mouse_press.position = Vector2(60, 44)
+		cancel_button._gui_input(mouse_press)
+		var mouse_release := InputEventMouseButton.new()
+		mouse_release.button_index = MOUSE_BUTTON_LEFT
+		mouse_release.pressed = false
+		mouse_release.position = Vector2(500, 500)
+		cancel_button._gui_input(mouse_release)
+		mouse_cancel_ok = mouse_cancel_ok and cancel_count[0] == 0 and cancel_button._touch_index == -1
+		cancel_button.pressed.disconnect(cancel_callback)
+	_check(touch_cancel_ok, "sliding a finger off Action or Water cancels without firing")
+	_check(mouse_cancel_ok, "releasing the emulated mouse outside Action or Water cancels without firing")
+	get_tree().root.size = old_window_size
+	await get_tree().process_frame
+	GameState.settings.reduced_motion = old_reduced_motion
+	GameState.settings.touch = old_touch
+	main._refresh_touch_controls()
+
+# Verify that every Control in a dismissed modal ignores input immediately.
+func _ui_input_transparent(root: Node) -> bool:
+	if root is Control and (root as Control).mouse_filter != Control.MOUSE_FILTER_IGNORE:
+		return false
+	for child in root.get_children():
+		if not _ui_input_transparent(child):
+			return false
+	return true
 
 # Verify live layout, scene selection, collisions, touch targets, and interaction routing.
 func _test_live_world(main) -> void:
@@ -1217,6 +1550,13 @@ func _test_live_world(main) -> void:
 	world._click_target(school_compost)
 	_check(is_instance_valid(main.modal) and _ui_contains_text(main.modal, "ایستگاه کمپوست"), "school compost also opens with direct touch or click")
 	main._close_modal()
+	world.set_player_position(Vector2(900, 650))
+	world._last_pointer_ms = -1000
+	world._click_target(school_compost)
+	_check(not is_instance_valid(main.modal), "distant compost tap cannot bypass the interaction range")
+	world._last_pointer_ms = -1000
+	world._click_target(WorldController.NPC_POSITIONS[0])
+	_check(not is_instance_valid(main.modal), "distant NPC tap cannot bypass the conversation range")
 	# Off-location travel must not leak memorial ambience into another scene.
 	GameState.data.chapter = 5
 	GameState.data.zone = "school"

@@ -111,6 +111,10 @@ func play_music(name: String) -> void:
 # Changes the active zone and restarts the randomized bird schedule for its ambience.
 func set_zone(zone: String) -> void:
 	if _zone == zone:
+		# Reused ambience still needs the new location-specific gain applied immediately.
+		if _active_ambience >= 0:
+			_ambience_scales[_active_ambience] = _ambience_scale(_ambience_name)
+			_update_volumes()
 		return
 	_zone = zone
 	_bird_timer = randf_range(7.0, 13.0)
@@ -177,6 +181,9 @@ func _start_ambience(name: String) -> void:
 		_ambience_targets = [0.0, 0.0]
 		return
 	if _ambience_name == name and _active_ambience >= 0 and _ambience_players[_active_ambience].playing:
+		# Location changes can reuse the same stream with a different relative gain.
+		_ambience_scales[_active_ambience] = _ambience_scale(name)
+		_update_volumes()
 		return
 	var stream := _stream(name, true)
 	if stream == null:

@@ -19,6 +19,7 @@ const BORDER := Color("b9965e")
 const TEXT_MUTED := Color("6f725c")
 const FONT = preload("res://assets/fonts/Vazirmatn-Regular.ttf")
 const BOLD = preload("res://assets/fonts/Vazirmatn-Bold.ttf")
+const TOUCH_ACTION_BUTTON = preload("res://scripts/touch_action_button.gd")
 
 # Converts Latin digits in a value to Persian digits for display.
 static func number(value: Variant) -> String:
@@ -157,6 +158,68 @@ static func button(title: String, action: Callable, icon_name: String = "", vari
 			result.create_tween().tween_property(result, "modulate", Color(1.04, 1.04, 1.04, 1.0) if result.is_hovered() else Color.WHITE, 0.1)
 	)
 	# Deferring the callable lets button signal cleanup finish before game state changes.
+	result.pressed.connect(func() -> void:
+		AudioManager.play_sfx("click")
+		action.call_deferred()
+	)
+	return result
+
+# Creates a themed gameplay button that accepts independent simultaneous screen touches.
+static func touch_button(title: String, action: Callable, icon_name: String = "", variant: String = "primary") -> TouchActionButton:
+	var result: TouchActionButton = TOUCH_ACTION_BUTTON.new()
+	result.text = title
+	result.text_direction = Control.TEXT_DIRECTION_RTL
+	result.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	result.custom_minimum_size = Vector2(0, 56)
+	result.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	result.add_theme_font_override("font", BOLD)
+	result.add_theme_font_size_override("font_size", 20)
+	# Gameplay buttons share the same licensed visual family as ordinary menu buttons.
+	var assets := {
+		"primary": "button_start",
+		"accent": "button_start",
+		"secondary": "button_wood_dark",
+		"water": "button_water",
+		"danger": "button_danger",
+		"quiet": "button_wood",
+		"wood": "button_wood",
+		"wood_dark": "button_wood_dark",
+		"start": "button_start",
+	}
+	var asset_name: String = assets.get(variant, "button_start")
+	result.add_theme_color_override("font_color", CREAM)
+	result.add_theme_color_override("font_hover_color", Color.WHITE)
+	result.add_theme_color_override("font_focus_color", Color.WHITE)
+	result.add_theme_color_override("font_pressed_color", CREAM)
+	result.add_theme_stylebox_override("normal", _button_texture_style(asset_name))
+	result.add_theme_stylebox_override("hover", _button_texture_style(asset_name + "_hover"))
+	result.add_theme_stylebox_override("pressed", _button_texture_style(asset_name + "_pressed"))
+	result.add_theme_stylebox_override("focus", style(Color(0, 0, 0, 0), ACCENT, 14, 3))
+	result.add_theme_stylebox_override("disabled", _button_texture_style(asset_name + "_pressed"))
+	result.add_theme_color_override("font_disabled_color", Color("e7e0cb"))
+	if not icon_name.is_empty():
+		result.icon = GameAtlas.icon(icon_name)
+		result.expand_icon = true
+		result.add_theme_constant_override("icon_max_width", 28)
+		result.add_theme_constant_override("h_separation", 10)
+	result.mouse_entered.connect(func() -> void:
+		if bool(GameState.settings.get("reduced_motion", false)):
+			return
+		result.create_tween().tween_property(result, "modulate", Color(1.06, 1.06, 1.06, 1.0), 0.12)
+	)
+	result.mouse_exited.connect(func() -> void:
+		if bool(GameState.settings.get("reduced_motion", false)):
+			return
+		result.create_tween().tween_property(result, "modulate", Color.WHITE, 0.12)
+	)
+	result.button_down.connect(func() -> void:
+		if not bool(GameState.settings.get("reduced_motion", false)):
+			result.create_tween().tween_property(result, "modulate", Color(0.94, 0.94, 0.94, 1.0), 0.08)
+	)
+	result.button_up.connect(func() -> void:
+		if not bool(GameState.settings.get("reduced_motion", false)):
+			result.create_tween().tween_property(result, "modulate", Color(1.04, 1.04, 1.04, 1.0) if result.is_hovered() else Color.WHITE, 0.1)
+	)
 	result.pressed.connect(func() -> void:
 		AudioManager.play_sfx("click")
 		action.call_deferred()

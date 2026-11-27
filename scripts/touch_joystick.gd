@@ -24,20 +24,27 @@ func _input(event: InputEvent) -> void:
 		reset()
 		return
 	if event is InputEventScreenTouch:
+		# Android cancellation uses index -1 and must release the latched finger.
+		if event.canceled or (not event.pressed and event.index == -1):
+			reset()
+			get_viewport().set_input_as_handled()
+			return
+		var local_point: Vector2 = make_input_local(event).position
 		# Capture a new press only when no other finger already owns the joystick.
-		if event.pressed and _finger == -1 and get_global_rect().has_point(event.position):
+		if event.pressed and _finger == -1 and Rect2(Vector2.ZERO, size).has_point(local_point):
 			_finger = event.index
-			_update_direction(event.position)
+			_update_direction(local_point)
 			get_viewport().set_input_as_handled()
 		elif not event.pressed and event.index == _finger:
 			reset()
+			get_viewport().set_input_as_handled()
 	elif event is InputEventScreenDrag and event.index == _finger:
-		_update_direction(event.position)
+		_update_direction(make_input_local(event).position)
 		get_viewport().set_input_as_handled()
 
-# Converts the touch offset to a clamped direction with a small neutral dead zone.
+# Converts the local touch offset to a clamped direction with a small neutral dead zone.
 func _update_direction(point: Vector2) -> void:
-	var center := get_global_rect().get_center()
+	var center := size * 0.5
 	_direction = ((point - center) / 52.0).limit_length()
 	if _direction.length() < 0.15:
 		_direction = Vector2.ZERO

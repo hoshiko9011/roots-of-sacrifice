@@ -49,7 +49,7 @@ adb shell monkey -p ir.roots_of_sacrifice.game -c android.intent.category.LAUNCH
 
 ## بازسازی با اسکریپت
 
-اسکریپت [tools/build_android.sh](../tools/build_android.sh) پروژه را import و export می‌کند، APKهای debug و release را تراز و امضا می‌کند، خروجی را بررسی می‌کند و گزارش‌ها و SHA-256 را در `builds/test-results/` می‌نویسد.
+اسکریپت [tools/build_android.sh](../tools/build_android.sh) پیش از export مجموعهٔ کامل تست‌های رگرسیون را اجرا می‌کند و در صورت خطا ساخت را متوقف می‌کند. سپس پروژه را import و export می‌کند، APKهای debug و release را تراز و امضا می‌کند، خروجی را بررسی می‌کند و گزارش‌ها و SHA-256 را در `builds/test-results/` می‌نویسد.
 
 ### پیش‌نیازها
 
@@ -81,6 +81,15 @@ export ANDROID_BUILD_TOOLS="/path/to/android-sdk/build-tools/36.0.0"
 builds/android/roots-of-sacrifice-debug.apk
 builds/android/roots-of-sacrifice-release.apk
 ```
+
+### خروجی بازبینی فنی ۲۰۲۶-۱۱-۲۷
+
+| فایل | اندازه | SHA-256 |
+|---|---:|---|
+| `builds/android/roots-of-sacrifice-debug.apk` | ۸۴٬۷۴۰٬۷۹۲ بایت | `305cac9b5bff98b65e92954fcfe121620219d43b376d66dd3b54e8f3e2c8d2a4` |
+| `builds/android/roots-of-sacrifice-release.apk` | ۷۹٬۵۳۸٬۴۷۶ بایت | `fbad8801c85f068af36c4d464f85c59861db28d09486485673c770118ac9e615` |
+
+این خروجی‌ها مربوط به شاخهٔ `audit/android-stability-qa` هستند و جایگزین خودکار APK منتشرشدهٔ `v1.0.0` نیستند.
 
 ### کلیدهای امضا
 
@@ -122,4 +131,4 @@ package: ir.roots_of_sacrifice.game
 
 ## وضعیت آزمون
 
-نسخهٔ release تاکنون فقط روی **Poco X7 Pro** (مدل `2412DPC0AG`، اندروید ۱۶) به‌صورت فیزیکی نصب و اجرا شده است. سازگاری با همهٔ گوشی‌ها ادعا نمی‌شود. جزئیات بیشتر در [README](../README.md) و [گزارش آزمون](TEST_REPORT.md) آمده است.
+نسخهٔ release و نسخهٔ بازبینی‌شده فقط روی **Poco X7 Pro** (مدل `2412DPC0AG`، اندروید ۱۶) به‌صورت فیزیکی نصب و اجرا شده‌اند. در نسخهٔ بازبینی‌شده، نصب incremental و چرخهٔ Home/resume نیز موفق بود؛ تزریق لمسی خودکار به‌دلیل سیاست امنیتی MIUI مسدود ماند. سازگاری با همهٔ گوشی‌ها ادعا نمی‌شود. جزئیات بیشتر در [README](../README.md)، [گزارش آزمون](TEST_REPORT.md) و [گزارش بازرسی فنی](QA_AUDIT.md) آمده است.

@@ -82,11 +82,11 @@ godot --path .
 godot --headless --path . --scene res://tests/test_runner.tscn
 ```
 
-خروجی مورد انتظار: `ROOTS_TESTS: 325 checks, 0 failures`.
+خروجی مورد انتظار: `ROOTS_TESTS: 359 checks, 0 failures`.
 
 ### ساخت APK
 
-اسکریپت `tools/build_android.sh` پروژه را import و export می‌کند، APK را تراز و امضا می‌کند و خروجی را بررسی می‌کند. مسیر ابزارها را با متغیرهای محیطی تنظیم کنید؛ مقادیر پیش‌فرض اسکریپت مربوط به یک محیط محلی ویندوز است و در مخزن نیست:
+اسکریپت `tools/build_android.sh` پیش از export تست‌های رگرسیون را اجرا می‌کند، سپس پروژه را import و export می‌کند، APK را تراز و امضا می‌کند و خروجی را بررسی می‌کند. مسیر ابزارها را با متغیرهای محیطی تنظیم کنید؛ مقادیر پیش‌فرض اسکریپت مربوط به یک محیط محلی ویندوز است و در مخزن نیست:
 
 ```bash
 export GODOT_BIN="/path/to/godot"
@@ -121,11 +121,11 @@ node tools/generate_audio.mjs
 
 ## وضعیت آزمون
 
-تست خودکار منطق بازی، ذخیره، محتوا و بخشی از رابط را پوشش می‌دهد، اما جایگزین بازی دستی روی دستگاه نیست. نسخهٔ release تاکنون فقط روی **Poco X7 Pro** (مدل `2412DPC0AG`، اندروید ۱۶) به‌صورت فیزیکی نصب و اجرا شده است. سازگاری با همهٔ گوشی‌ها، از جمله Samsung و Huawei و معماری `armeabi-v7a`، ادعا نمی‌شود.
+تست خودکار منطق بازی، ذخیره، محتوا و بخشی از رابط را پوشش می‌دهد، اما جایگزین بازی دستی روی دستگاه نیست. نسخهٔ release و نسخهٔ بازبینی‌شده فقط روی **Poco X7 Pro** (مدل `2412DPC0AG`، اندروید ۱۶) به‌صورت فیزیکی نصب و اجرا شده‌اند. در نسخهٔ بازبینی‌شده، نصب incremental و چرخهٔ Home/resume نیز موفق بود؛ تزریق لمسی خودکار به‌دلیل سیاست امنیتی MIUI مسدود ماند. سازگاری با همهٔ گوشی‌ها، از جمله Samsung و Huawei و معماری `armeabi-v7a`، ادعا نمی‌شود.
 
 در این نسخه ویرایش یا حذف یادبود، انتخاب فصل فعال و تاریخچهٔ تلاش پرسش وجود ندارد.
 
-جزئیات آزمون در [docs/TESTING.md](docs/TESTING.md) و [docs/TEST_REPORT.md](docs/TEST_REPORT.md) آمده است.
+جزئیات آزمون در [docs/TESTING.md](docs/TESTING.md)، [docs/TEST_REPORT.md](docs/TEST_REPORT.md) و [docs/QA_AUDIT.md](docs/QA_AUDIT.md) آمده است.
 
 ## ساختار مخزن
 
@@ -149,6 +149,7 @@ export_presets.cfg
 - [سند طراحی بازی](docs/GDD.md)
 - [ماتریس آزمون و پذیرش](docs/TESTING.md)
 - [گزارش آزمون](docs/TEST_REPORT.md)
+- [گزارش بازرسی فنی](docs/QA_AUDIT.md)
 - [Manifest دارایی‌های هنری](assets/art/ASSET_MANIFEST.md)
 - [Manifest دارایی‌های صوتی](assets/audio/AUDIO_MANIFEST.md)
 
