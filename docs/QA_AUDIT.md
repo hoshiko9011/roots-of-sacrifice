@@ -106,10 +106,18 @@ FPS حالت headless معیار سریع‌تر اجرای حلقهٔ engine ا
 | `builds/android/roots-of-sacrifice-debug.apk` | ۸۴٬۷۴۰٬۷۸۷ بایت | `7baded8d5b7775915b73cc03d7d15c31a89ee388508bd6c4a9faac0f3f52c62f` |
 | `builds/android/roots-of-sacrifice-release.apk` | ۷۹٬۵۳۸٬۴۷۵ بایت | `8636361cd38bc320f01c5c5ba4a9bd01eb89bb5af8bcbf5fe2a17b700044ab4b` |
 
+### تست فیزیکی تکمیلی روی Poco X7 Pro
+
+در ۲۰۲۶-۱۱-۲۷ APK نسخهٔ نهاییِ همین شاخه با `adb install -r` روی گوشی `2412DPC0AG` با Android 16 نصب شد؛ دادهٔ کاربر پاک نشد و نصب incremental موفق بود. بازی اجرا شد، صفحهٔ گیم‌پلی و آموزش دیده شد، رفتن به Home و بازگشت باعث `OnPause`/`OnStop` سپس `OnStart`/`OnResume` شد و صفحهٔ توقف بدون کرش نمایش داده شد. process پس از بازگشت زنده ماند و `logcat -b crash` یا خطای Godot/ANR ثبت نشد.
+
+نمونهٔ حافظه پس از بازگشت: `TOTAL PSS = 356668 kB`، `TOTAL RSS = 505136 kB`، Graphics = `165352 kB`.
+
+تزریق لمس با `adb shell input tap` روی این دستگاه با `SecurityException: INJECT_EVENTS` مسدود شد؛ بنابراین تست خودکار دکمه‌ها و چندلمسی روی گوشی انجام نشد و تنظیم امنیتی گوشی تغییر داده نشد.
+
 ## محدودیت‌ها و موارد باز
 
-1. هیچ دستگاه Android در جلسهٔ نهایی به `adb` متصل نبود؛ APK تازه روی گوشی اجرا نشده است.
-2. تست فیزیکی نسخهٔ قبلی فقط روی Poco X7 Pro / Android 16 / Mali-G720 انجام شده بود؛ این نتیجه به‌طور خودکار به APK بازبینی‌شده تعمیم داده نمی‌شود.
+1. تست فیزیکی محدود به Poco X7 Pro / Android 16 / Mali-G720 انجام شده است؛ این نتیجه به‌طور خودکار به سایر گوشی‌ها تعمیم داده نمی‌شود.
+2. نصب incremental، اجرا و چرخهٔ Home/resume نسخهٔ بازبینی‌شده روی همین گوشی موفق بود، اما تعامل لمسی خودکار به‌دلیل سیاست امنیتی MIUI مسدود ماند.
 3. armv7 فیزیکی، Samsung، Huawei، Adreno و PowerVR تست فیزیکی نشده‌اند.
 4. تست دستی Home، خاموشی صفحه، تماس واقعی، audio focus واقعی، Back فیزیکی، soak طولانی و فصل کامل روی گوشی همچنان لازم است.
 5. cold start در airplane mode، نصب تازه، ارتقای چندنسخه‌ای و حفظ save/settings روی نسخهٔ تازه دستی آزموده نشده‌اند.
